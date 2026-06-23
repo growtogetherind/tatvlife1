@@ -1,0 +1,1155 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import {
+  LayoutGrid, PlusCircle, Mail, CheckCircle, Package,
+  ChevronDown, ChevronUp, AlertCircle, Hash, BarChart2, Users,
+  ShoppingBag, ExternalLink, Pencil, Trash2, Settings, Save, FileText,
+} from 'lucide-react';
+import { API_BASE } from '../lib/api';
+
+const StatusPill = ({ status }) => {
+  const map = {
+    unpaid: { cls: 'status-pending', label: 'Unpaid' },
+    paid: { cls: 'status-completed', label: 'Paid' },
+    pending_payment: { cls: 'status-pending', label: 'Pending Payment' },
+    processing: { cls: 'status-processing', label: 'Processing' },
+    completed: { cls: 'status-completed', label: 'Completed' },
+    sent: { cls: 'status-completed', label: 'Sent' },
+    failed: { cls: 'status-cancelled', label: 'Failed' },
+    draft_opened: { cls: 'status-processing', label: 'Draft Opened' },
+    cancelled: { cls: 'status-cancelled', label: 'Cancelled' },
+  };
+  const { cls, label } = map[status] || { cls: 'status-cancelled', label: status || 'Unknown' };
+  return <span className={`status-pill ${cls}`}>{label}</span>;
+};
+
+const AdminDashboard = () => {
+  const { user, token, isAdmin, loading } = useAuth();
+  const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState('overview');
+  const [emailLogs, setEmailLogs] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [blogs, setBlogs] = useState([]);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [emailSending, setEmailSending] = useState(false);
+  const [productSaving, setProductSaving] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState('');
+  const [emailConfigSaving, setEmailConfigSaving] = useState(false);
+  const [blogSaving, setBlogSaving] = useState(false);
+  const [deletingBlogId, setDeletingBlogId] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [emailForm, setEmailForm] = useState({
+    recipient: '',
+    subject: 'Tatvalife: Action Required - Secure Payment Link',
+    template: 'payment_link',
+    message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\nhttp://localhost:5173/checkout\n\nWarm regards,\nTatvalife Care Team`,
+    paymentLink: 'http://localhost:5173/checkout',
+  });
+  const [expandedOrder, setExpandedOrder] = useState(null);
+  const [orderDrafts, setOrderDrafts] = useState({});
+  const [editingProductId, setEditingProductId] = useState('');
+  const [editingBlogId, setEditingBlogId] = useState('');
+
+  const blankProductForm = {
+    name: '', slug: '', description: '', manufacturer: '',
+    price: '', stock: '', dosage: '', side_effects: '',
+    category_id: 'sexual-health', featured: false, active: true, image_url: '',
+  };
+
+  const [productForm, setProductForm] = useState(blankProductForm);
+  const blankBlogForm = {
+    title: '', slug: '', excerpt: '', content: '', cover_image: '',
+    author_name: 'Tatvalife Care Team', published: true,
+  };
+  const [blogForm, setBlogForm] = useState(blankBlogForm);
+  const [emailConfig, setEmailConfig] = useState({
+    host: '',
+    port: 587,
+    secure: false,
+    user: '',
+    pass: '',
+    fromEmail: '',
+    fromName: 'Tatvalife Care Team',
+    replyTo: '',
+    configured: false,
+  });
+
+  useEffect(() => {
+    if (loading) return;
+    if (!user || !token) {
+      navigate('/login?redirect=/admin');
+    } else if (!isAdmin) {
+      navigate('/dashboard');
+    }
+  }, [user, token, isAdmin, loading, navigate]);
+
+  const fetchData = async () => {
+    try {
+      setPageLoading(true);
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const [cRes, pRes, oRes, bRes] = await Promise.all([
+        fetch(`${API_BASE}/categories`),
+        fetch(`${API_BASE}/products`),
+        fetch(`${API_BASE}/orders`, { headers }),
+        fetch(`${API_BASE}/blogs`, { headers }),
+      ]);
+
+      if (cRes.ok) setCategories(await cRes.json());
+      if (pRes.ok) setProducts(await pRes.json());
+      if (oRes.ok) setOrders(await oRes.json());
+      if (bRes.ok) setBlogs(await bRes.json());
+    } catch (err) { console.error(err); }
+    finally { setPageLoading(false); }
+  };
+
+  const fetchEmailLogs = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/emails`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) setEmailLogs(await res.json());
+    } catch (err) { console.error(err); }
+  };
+
+  const fetchEmailConfig = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/emails/config`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) {
+        const data = await res.json();
+        setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
+      }
+    } catch (err) { console.error(err); }
+  };
+
+
+  useEffect(() => { if (token && isAdmin) fetchData(); }, [token, isAdmin]);
+  useEffect(() => {
+    if (activeTab === 'email-logs' && token && isAdmin) {
+      fetchEmailLogs();
+      fetchEmailConfig();
+    }
+  }, [activeTab, token, isAdmin]);
+
+  if (loading || pageLoading) {
+    return (
+      <div className="admin-layout" style={{ minHeight: '100vh', display: 'grid', placeItems: 'center' }}>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '10px' }}>Loading admin dashboard…</div>
+          <div style={{ color: 'rgba(255,255,255,0.7)' }}>Please wait while we verify your account.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const handleSaveProduct = async e => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setProductSaving(true);
+    try {
+      const endpoint = editingProductId ? `${API_BASE}/products/${editingProductId}` : `${API_BASE}/products`;
+      const res = await fetch(endpoint, {
+        method: editingProductId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(productForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setProducts(prev => {
+        if (editingProductId) return prev.map(product => product.id === data.id ? { ...product, ...data } : product);
+        return [data, ...prev];
+      });
+      setSuccess(`"${data.name}" ${editingProductId ? 'updated' : 'added'} successfully.`);
+      setProductForm(blankProductForm);
+      setEditingProductId('');
+      setActiveTab('products');
+      fetchData();
+    } catch (err) { setError(err.message || 'Error saving product.'); }
+    finally { setProductSaving(false); }
+  };
+
+  const handleProductChange = e => {
+    const { name, value, type, checked } = e.target;
+    setProductForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleEditProduct = product => {
+    setEditingProductId(product.id);
+    setProductForm({
+      name: product.name || '',
+      slug: product.slug || '',
+      description: product.description || '',
+      manufacturer: product.manufacturer || '',
+      price: String(product.price ?? ''),
+      stock: String(product.stock ?? ''),
+      dosage: product.dosage || '',
+      side_effects: product.side_effects || '',
+      category_id: product.category_id || categories[0]?.id || 'sexual-health',
+      featured: !!product.featured,
+      active: product.active !== false,
+      image_url: product.image_url || '',
+    });
+    setActiveTab('add-product');
+  };
+
+  const handleDeleteProduct = async product => {
+    if (!window.confirm(`Delete "${product.name}" from the catalog?`)) return;
+
+    setError('');
+    setSuccess('');
+    setDeletingProductId(product.id);
+    try {
+      const res = await fetch(`${API_BASE}/products/${product.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete product.');
+      setProducts(prev => prev.filter(item => item.id !== product.id));
+      setSuccess(`"${product.name}" deleted from the catalog.`);
+      if (editingProductId === product.id) {
+        setEditingProductId('');
+        setProductForm(blankProductForm);
+      }
+    } catch (err) {
+      setError(err.message || 'Error deleting product.');
+    } finally {
+      setDeletingProductId('');
+    }
+  };
+
+  const handleCancelProductEdit = () => {
+    setEditingProductId('');
+    setProductForm(blankProductForm);
+    setActiveTab('products');
+  };
+
+  const handleBlogChange = e => {
+    const { name, value, type, checked } = e.target;
+    setBlogForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSaveBlog = async e => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setBlogSaving(true);
+    try {
+      const endpoint = editingBlogId ? `${API_BASE}/blogs/${editingBlogId}` : `${API_BASE}/blogs`;
+      const res = await fetch(endpoint, {
+        method: editingBlogId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(blogForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save blog.');
+      setBlogs(prev => editingBlogId ? prev.map(blog => blog.id === data.id ? data : blog) : [data, ...prev]);
+      setBlogForm(blankBlogForm);
+      setEditingBlogId('');
+      setActiveTab('blogs');
+      setSuccess(`"${data.title}" ${editingBlogId ? 'updated' : 'published'} successfully.`);
+      fetchData();
+    } catch (err) {
+      setError(err.message || 'Error saving blog.');
+    } finally {
+      setBlogSaving(false);
+    }
+  };
+
+  const handleEditBlog = blog => {
+    setEditingBlogId(blog.id);
+    setBlogForm({
+      title: blog.title || '',
+      slug: blog.slug || '',
+      excerpt: blog.excerpt || '',
+      content: blog.content || '',
+      cover_image: blog.cover_image || '',
+      author_name: blog.author_name || 'Tatvalife Care Team',
+      published: blog.published !== false,
+    });
+    setActiveTab('blog-editor');
+  };
+
+  const handleDeleteBlog = async blog => {
+    if (!window.confirm(`Delete "${blog.title}" from the blog?`)) return;
+    setError('');
+    setSuccess('');
+    setDeletingBlogId(blog.id);
+    try {
+      const res = await fetch(`${API_BASE}/blogs/${blog.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete blog.');
+      setBlogs(prev => prev.filter(item => item.id !== blog.id));
+      if (editingBlogId === blog.id) {
+        setEditingBlogId('');
+        setBlogForm(blankBlogForm);
+      }
+      setSuccess(`"${blog.title}" deleted.`);
+    } catch (err) {
+      setError(err.message || 'Error deleting blog.');
+    } finally {
+      setDeletingBlogId('');
+    }
+  };
+
+  const handleCancelBlogEdit = () => {
+    setEditingBlogId('');
+    setBlogForm(blankBlogForm);
+    setActiveTab('blogs');
+  };
+
+  const handleEmailConfigChange = e => {
+    const { name, value, type, checked } = e.target;
+    setEmailConfig(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSaveEmailConfig = async e => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setEmailConfigSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/emails/config`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(emailConfig),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save email settings.');
+      setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
+      setSuccess('Local email settings saved.');
+    } catch (err) {
+      setError(err.message || 'Error saving email settings.');
+    } finally {
+      setEmailConfigSaving(false);
+    }
+  };
+
+  const handleClearEmailConfig = async () => {
+    if (!window.confirm('Are you sure you want to remove the SMTP configuration?')) return;
+    setError('');
+    setSuccess('');
+    setEmailConfigSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}/emails/config`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to clear email settings.');
+      setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
+      setSuccess('Local email settings removed.');
+    } catch (err) {
+      setError(err.message || 'Error removing email settings.');
+    } finally {
+      setEmailConfigSaving(false);
+    }
+  };
+
+  const handleOrderDraftChange = (orderId, field, value) => {
+    setOrderDrafts(prev => ({
+      ...prev,
+      [orderId]: { ...prev[orderId], [field]: value },
+    }));
+  };
+
+  const handleUpdateOrder = async order => {
+    const draft = orderDrafts[order.id] || {};
+    const updates = {
+      order_status: draft.order_status ?? order.order_status,
+      payment_status: draft.payment_status ?? order.payment_status,
+      payment_link: draft.payment_link ?? order.payment_link,
+      transaction_hash: draft.transaction_hash ?? order.transaction_hash,
+    };
+
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${API_BASE}/orders/${order.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update order.');
+      setOrders(prev => prev.map(item => item.id === data.id ? data : item));
+      setOrderDrafts(prev => {
+        const next = { ...prev };
+        delete next[order.id];
+        return next;
+      });
+      setSuccess(`Order #${order.id.slice(0, 12)} updated.`);
+    } catch (err) {
+      setError(err.message || 'Error updating order.');
+    }
+  };
+
+  const customerOptions = [...new Map(orders
+    .filter(order => order.user_email)
+    .map(order => [order.user_email, {
+      id: order.user_id || order.user_email,
+      email: order.user_email,
+      name: order.shipping_address?.fullName || order.user_email,
+    }])
+  ).values()];
+
+  const getEmailTemplateCopy = (template, paymentLink = emailForm.paymentLink) => {
+    if (template === 'order_confirmation') {
+      return {
+        subject: 'Tatvalife: Order Confirmed & Paid',
+        message: `Dear Customer,\n\nWe have received your payment. Your order has been confirmed and is now being processed.\n\nThank you for shopping with us.\n\nWarm regards,\nTatvalife Care Team`,
+      };
+    }
+
+    if (template === 'shipping_notification') {
+      return {
+        subject: 'Tatvalife: Your Order Has Been Dispatched',
+        message: `Dear Customer,\n\nYour order has been shipped and is on its way to your address. You can track shipment details in your dashboard.\n\nWarm regards,\nTatvalife Care Team`,
+      };
+    }
+
+    return {
+      subject: 'Tatvalife: Action Required - Secure Payment Link',
+      message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${paymentLink || `${window.location.origin}/checkout`}\n\nWarm regards,\nTatvalife Care Team`,
+    };
+  };
+
+  const handleTemplateChange = template => {
+    const copy = getEmailTemplateCopy(template);
+    setEmailForm(prev => ({
+      ...prev,
+      template,
+      subject: copy.subject,
+      message: copy.message,
+    }));
+  };
+
+  const handlePaymentLinkChange = paymentLink => {
+    setEmailForm(prev => ({
+      ...prev,
+      paymentLink,
+      message: prev.template === 'payment_link'
+        ? getEmailTemplateCopy('payment_link', paymentLink).message
+        : prev.message,
+    }));
+  };
+
+  const handleSharePayment = order => {
+    const checkoutUrl = `${window.location.origin}/checkout?order=${order.id}`;
+    const customerName = order.shipping_address?.fullName || 'Customer';
+
+    setActiveTab('email-logs');
+    setEmailForm({
+      recipient: order.user_email || '',
+      subject: `Secure Payment Link for Order #${order.id.slice(0, 8).toUpperCase()}`,
+      template: 'payment_link',
+      message: `Dear ${customerName},\n\nThank you for choosing Tatvalife. Your order #${order.id.slice(0, 8).toUpperCase()} for $${Number(order.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} is pending payment.\n\nPlease complete your payment securely using the link below:\n\n${checkoutUrl}\n\nIf you have any questions, please contact our support team.\n\nWarm regards,\nTatvalife Care Team`,
+      paymentLink: checkoutUrl,
+    });
+    setSuccess('Payment email template is ready to send.');
+  };
+
+  const handleSendEmail = async e => {
+    e.preventDefault();
+    if (!emailForm.recipient) {
+      setError('Please select or enter a recipient.');
+      return;
+    }
+
+    setError('');
+    setSuccess('');
+    setEmailSending(true);
+    try {
+      const res = await fetch(`${API_BASE}/emails/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          user_email: emailForm.recipient,
+          email_type: emailForm.template,
+          subject: emailForm.subject,
+          body: emailForm.message,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.log) setEmailLogs(prev => [data.log, ...prev]);
+        throw new Error(data.error || 'Failed to send email.');
+      }
+
+      setEmailLogs(prev => [data, ...prev]);
+      setSuccess(`Email sent to ${emailForm.recipient}.`);
+      setEmailForm({
+        recipient: '',
+        subject: 'Tatvalife: Action Required - Secure Payment Link',
+        template: 'payment_link',
+        message: `Dear Customer,
+
+Your order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:
+
+${window.location.origin}/checkout
+
+Warm regards,
+Tatvalife Care Team`,
+        paymentLink: `${window.location.origin}/checkout`,
+      });
+    } catch (err) {
+      setError(err.message || 'Error sending email.');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
+  const navItems = [
+    { id: 'overview', label: 'Overview', icon: LayoutGrid },
+    { id: 'orders', label: 'Orders', icon: ShoppingBag },
+    { id: 'products', label: 'Products', icon: Package },
+    { id: 'add-product', label: 'Add Product', icon: PlusCircle },
+    { id: 'blogs', label: 'Blogs', icon: FileText },
+    { id: 'blog-editor', label: 'Blog Editor', icon: PlusCircle },
+    { id: 'email-logs', label: 'Email Logs', icon: Mail },
+  ];
+
+  const stats = [
+    { label: 'Orders', value: orders.length, icon: ShoppingBag },
+    { label: 'Products', value: products.length, icon: Package },
+    { label: 'Blogs', value: blogs.length, icon: FileText },
+    { label: 'Customers', value: new Set(orders.map(order => order.user_email)).size, icon: Users },
+    { label: 'Revenue', value: `$${orders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`, icon: BarChart2 },
+  ];
+
+  return (
+    <div className="admin-layout" style={{ minHeight: 'calc(100vh - 36px)' }}>
+
+      {/* Sidebar */}
+      <aside className="admin-sidebar">
+        <div style={{ padding: '24px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+            <div style={{ width: '28px', height: '28px', background: 'rgba(255,255,255,0.1)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.15)' }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 5 5 5 9C5 13 8 15.5 12 22C16 15.5 19 13 19 9C19 5 15.5 2 12 2Z" fill="white" opacity="0.9"/></svg>
+            </div>
+            <span style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', fontWeight: 600, color: 'white' }}>Admin Console</span>
+          </div>
+          <p style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.35)', margin: '4px 0 0' }}>Tatvalife Systems</p>
+        </div>
+
+        <nav style={{ padding: '12px 0', flex: 1 }}>
+          {navItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              className={`admin-nav-link ${activeTab === id ? 'active' : ''}`}
+            >
+              <Icon size={15} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.07)' }}>
+          <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.3)', marginBottom: '3px' }}>Logged in as</div>
+          <div style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.65)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="admin-content" style={{ padding: '36px 40px' }}>
+
+        <div style={{ marginBottom: '28px' }}>
+          <h1 style={{ fontSize: '22px', fontWeight: 700, color: 'var(--green-900)', marginBottom: '4px' }}>
+            {navItems.find(n => n.id === activeTab)?.label}
+          </h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
+            Administrative control panel — Tatvalife platform management.
+          </p>
+        </div>
+
+        {error && <div className="alert alert-error" style={{ marginBottom: '20px' }}><AlertCircle size={15} style={{ flexShrink: 0 }} /><span>{error}</span></div>}
+        {success && <div className="alert alert-success" style={{ marginBottom: '20px' }}><CheckCircle size={15} style={{ flexShrink: 0 }} /><span>{success}</span></div>}
+
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(150px, 1fr))', gap: '16px' }}>
+              {stats.map(({ label, value, icon: Icon }) => (
+                <div key={label} className="stat-card">
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                    <div>
+                      <div className="stat-card-label">{label}</div>
+                      <div className="stat-card-value">{value}</div>
+                    </div>
+                    <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: 'var(--green-50)', border: '1px solid var(--green-100)', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                      <Icon size={18} color="var(--green-700)" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="card-elevated">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px', gap: '12px' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Recent Orders</h2>
+                <button className="btn-ghost btn-sm" onClick={() => setActiveTab('orders')}>View all</button>
+              </div>
+              {orders.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>No orders yet.</p>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr><th>Order</th><th>Customer</th><th>Total</th><th>Status</th><th>Payment</th></tr>
+                  </thead>
+                  <tbody>
+                    {orders.slice(0, 5).map(order => (
+                      <tr key={order.id}>
+                        <td><code>#{order.id.slice(0, 12)}</code></td>
+                        <td>{order.user_email}</td>
+                        <td>${Number(order.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                        <td><StatusPill status={order.order_status} /></td>
+                        <td><StatusPill status={order.payment_status} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Orders Tab */}
+        {activeTab === 'orders' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {orders.length === 0 ? (
+              <div className="card" style={{ padding: '36px', textAlign: 'center' }}>
+                <Package size={24} color="var(--text-light)" />
+                <p style={{ color: 'var(--text-muted)', marginTop: '10px', marginBottom: 0 }}>No orders found.</p>
+              </div>
+            ) : orders.map(order => {
+              const draft = orderDrafts[order.id] || {};
+              const isOpen = expandedOrder === order.id;
+
+              return (
+                <div key={order.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedOrder(isOpen ? null : order.id)}
+                    style={{ width: '100%', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', border: 'none', background: isOpen ? 'var(--green-50)' : 'white', cursor: 'pointer', textAlign: 'left' }}
+                  >
+                    <div style={{ display: 'grid', gridTemplateColumns: '140px minmax(180px, 1fr) 110px 150px 120px', gap: '16px', alignItems: 'center', width: '100%' }}>
+                      <div>
+                        <div className="label" style={{ marginBottom: '2px' }}>Order</div>
+                        <code>#{order.id.slice(0, 12)}</code>
+                      </div>
+                      <div>
+                        <div className="label" style={{ marginBottom: '2px' }}>Customer</div>
+                        <span style={{ fontSize: '13.5px', color: 'var(--text-dark)' }}>{order.user_email}</span>
+                      </div>
+                      <div>
+                        <div className="label" style={{ marginBottom: '2px' }}>Total</div>
+                        <strong>${Number(order.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+                      </div>
+                      <StatusPill status={order.order_status} />
+                      <StatusPill status={order.payment_status} />
+                    </div>
+                    {isOpen ? <ChevronUp size={16} color="var(--text-muted)" /> : <ChevronDown size={16} color="var(--text-muted)" />}
+                  </button>
+
+                  {isOpen && (
+                    <div style={{ padding: '22px 20px', borderTop: '1px solid var(--beige-100)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                      <div>
+                        <h3 style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--green-900)' }}>Order Details</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '18px' }}>
+                          {(order.items || []).map((item, index) => (
+                            <div key={`${item.product_id}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', padding: '10px 12px', border: '1px solid var(--beige-100)', borderRadius: '10px', background: '#fdfcfb', fontSize: '13px' }}>
+                              <span><strong>{item.quantity}x</strong> {item.name}</span>
+                              <strong>${Number(item.price * item.quantity || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: '13px', lineHeight: 1.6, color: 'var(--text-dark)' }}>
+                          <strong>{order.shipping_address?.fullName}</strong><br />
+                          {order.shipping_address?.addressLine}<br />
+                          {order.shipping_address?.city}, {order.shipping_address?.state} {order.shipping_address?.postalCode}<br />
+                          {order.shipping_address?.country}
+                        </div>
+                      </div>
+
+                      <div>
+                        <h3 style={{ fontSize: '14px', marginBottom: '12px', color: 'var(--green-900)' }}>Manage Order</h3>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+                          <div>
+                            <label className="label">Order Status</label>
+                            <select className="select" value={draft.order_status ?? order.order_status} onChange={e => handleOrderDraftChange(order.id, 'order_status', e.target.value)}>
+                              <option value="pending_payment">Pending Payment</option>
+                              <option value="processing">Processing</option>
+                              <option value="completed">Completed</option>
+                              <option value="cancelled">Cancelled</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="label">Payment Status</label>
+                            <select className="select" value={draft.payment_status ?? order.payment_status} onChange={e => handleOrderDraftChange(order.id, 'payment_status', e.target.value)}>
+                              <option value="unpaid">Unpaid</option>
+                              <option value="paid">Paid</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div>
+                            <label className="label">Payment Link</label>
+                            <input className="input" value={draft.payment_link ?? order.payment_link ?? ''} onChange={e => handleOrderDraftChange(order.id, 'payment_link', e.target.value)} placeholder="https://checkout..." />
+                          </div>
+                          <div>
+                            <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><Hash size={11} /> Transaction Hash</label>
+                            <input className="input" value={draft.transaction_hash ?? order.transaction_hash ?? ''} onChange={e => handleOrderDraftChange(order.id, 'transaction_hash', e.target.value)} placeholder="0x..." />
+                          </div>
+                          {order.payment_link && (
+                            <a href={order.payment_link} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ width: 'fit-content', borderRadius: '10px', gap: '6px' }}>
+                              Open payment link <ExternalLink size={13} />
+                            </a>
+                          )}
+                          <button type="button" className="btn-outline btn-sm" style={{ width: 'fit-content', borderRadius: '10px', gap: '6px' }} onClick={() => handleSharePayment(order)}>
+                            <Mail size={13} /> Share Payment
+                          </button>
+                          <button type="button" className="btn-primary" style={{ borderRadius: '10px', width: 'fit-content' }} onClick={() => handleUpdateOrder(order)}>
+                            <CheckCircle size={15} /> Save Order
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Products Tab */}
+        {activeTab === 'products' && (
+          <div className="card-elevated">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Product Catalog</h2>
+              <button className="btn-primary btn-sm" onClick={() => { setEditingProductId(''); setProductForm(blankProductForm); setActiveTab('add-product'); }}>
+                <PlusCircle size={14} /> Add Product
+              </button>
+            </div>
+            {products.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', margin: 0 }}>No products found.</p>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr><th>Product</th><th>Category</th><th>Manufacturer</th><th>Price</th><th>Stock</th><th>Status</th><th>Featured</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {products.map(product => (
+                    <tr key={product.id}>
+                      <td>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <img src={product.image_url} alt="" style={{ width: '38px', height: '38px', borderRadius: '8px', objectFit: 'cover', background: 'var(--beige-100)' }} />
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{product.name}</div>
+                            <code style={{ color: 'var(--text-light)', fontSize: '11.5px' }}>{product.slug}</code>
+                          </div>
+                        </div>
+                      </td>
+                      <td>{product.categories?.name || product.category_id}</td>
+                      <td>{product.manufacturer}</td>
+                      <td>${Number(product.price || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+                      <td>{product.stock ?? 0}</td>
+                      <td><StatusPill status={product.active === false ? 'cancelled' : 'completed'} /></td>
+                      <td>{product.featured ? 'Yes' : 'No'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          <button type="button" className="btn-outline btn-sm" style={{ borderRadius: '10px', padding: '8px 12px' }} onClick={() => handleEditProduct(product)}>
+                            <Pencil size={13} /> Edit
+                          </button>
+                          <button type="button" className="btn-ghost btn-sm" style={{ borderRadius: '10px', padding: '8px 12px', color: '#b91c1c' }} onClick={() => handleDeleteProduct(product)} disabled={deletingProductId === product.id}>
+                            <Trash2 size={13} /> {deletingProductId === product.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Add Product Tab */}
+        {activeTab === 'add-product' && (
+          <div className="card-elevated" style={{ maxWidth: '820px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--green-50)', border: '1px solid var(--green-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <PlusCircle size={18} color="var(--green-700)" />
+              </div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>{editingProductId ? 'Edit Product' : 'Add Product to Catalog'}</h2>
+            </div>
+
+            <form onSubmit={handleSaveProduct} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label">Product Name</label>
+                  <input type="text" className="input" name="name" required value={productForm.name} onChange={handleProductChange} placeholder="e.g. Temozolomide 100mg" />
+                </div>
+                <div>
+                  <label className="label">URL Slug</label>
+                  <input type="text" className="input" name="slug" required value={productForm.slug} onChange={handleProductChange} placeholder="e.g. temozolomide-100mg" />
+                </div>
+              </div>
+              <div>
+                <label className="label">Description / Indication</label>
+                <textarea className="input" name="description" rows="3" style={{ resize: 'vertical' }} value={productForm.description} onChange={handleProductChange} placeholder="Describe the therapy usage and indication..." />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label">Manufacturer</label>
+                  <input type="text" className="input" name="manufacturer" value={productForm.manufacturer} onChange={handleProductChange} placeholder="e.g. Novartis" />
+                </div>
+                <div>
+                  <label className="label">Price (USD)</label>
+                  <input type="number" className="input" name="price" required value={productForm.price} onChange={handleProductChange} placeholder="50" />
+                </div>
+                <div>
+                  <label className="label">Stock Level</label>
+                  <input type="number" className="input" name="stock" value={productForm.stock} onChange={handleProductChange} placeholder="50" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label">Dosage Instructions</label>
+                  <input type="text" className="input" name="dosage" value={productForm.dosage} onChange={handleProductChange} placeholder="e.g. Take once daily at bedtime" />
+                </div>
+                <div>
+                  <label className="label">Common Side Effects</label>
+                  <input type="text" className="input" name="side_effects" value={productForm.side_effects} onChange={handleProductChange} placeholder="e.g. Nausea, headache, fatigue" />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr auto', gap: '16px', alignItems: 'end' }}>
+                <div>
+                  <label className="label">Category</label>
+                  <div style={{ position: 'relative' }}>
+                    <select className="select" name="category_id" value={productForm.category_id} onChange={handleProductChange}>
+                      {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <ChevronDown size={13} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--text-muted)' }} />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Image URL (optional)</label>
+                  <input type="text" className="input" name="image_url" value={productForm.image_url} onChange={handleProductChange} placeholder="https://..." />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '2px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-dark)' }}>
+                    <input type="checkbox" name="featured" checked={productForm.featured} onChange={handleProductChange} style={{ accentColor: 'var(--green-800)', width: '16px', height: '16px' }} />
+                    Featured
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-dark)' }}>
+                    <input type="checkbox" name="active" checked={productForm.active} onChange={handleProductChange} style={{ accentColor: 'var(--green-800)', width: '16px', height: '16px' }} />
+                    Active
+                  </label>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                {editingProductId && (
+                  <button type="button" className="btn-outline" style={{ flex: 1, borderRadius: '12px', padding: '14px' }} onClick={handleCancelProductEdit}>
+                    Cancel Edit
+                  </button>
+                )}
+                <button type="submit" className="btn-primary" disabled={productSaving} style={{ flex: 1, borderRadius: '12px', padding: '14px', gap: '8px' }}>
+                  <CheckCircle size={16} />
+                  {productSaving ? 'Saving...' : editingProductId ? 'Save Changes' : 'Save to Inventory'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Blogs Tab */}
+        {activeTab === 'blogs' && (
+          <div className="card-elevated">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '18px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Blog Posts</h2>
+              <button className="btn-primary btn-sm" onClick={() => { setEditingBlogId(''); setBlogForm(blankBlogForm); setActiveTab('blog-editor'); }}>
+                <PlusCircle size={14} /> Add Blog
+              </button>
+            </div>
+            {blogs.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)', margin: 0 }}>No blog posts found.</p>
+            ) : (
+              <table className="admin-table">
+                <thead>
+                  <tr><th>Title</th><th>Author</th><th>Status</th><th>Created</th><th>Actions</th></tr>
+                </thead>
+                <tbody>
+                  {blogs.map(blog => (
+                    <tr key={blog.id}>
+                      <td>
+                        <div style={{ fontWeight: 700 }}>{blog.title}</div>
+                        <code style={{ color: 'var(--text-light)', fontSize: '11.5px' }}>{blog.slug}</code>
+                      </td>
+                      <td>{blog.author_name}</td>
+                      <td><StatusPill status={blog.published === false ? 'pending_payment' : 'completed'} /></td>
+                      <td>{new Date(blog.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                          {blog.published !== false && (
+                            <a href={`/blog/${blog.slug}`} target="_blank" rel="noopener noreferrer" className="btn-outline btn-sm" style={{ borderRadius: '10px', padding: '8px 12px' }}>
+                              <ExternalLink size={13} /> View
+                            </a>
+                          )}
+                          <button type="button" className="btn-outline btn-sm" style={{ borderRadius: '10px', padding: '8px 12px' }} onClick={() => handleEditBlog(blog)}>
+                            <Pencil size={13} /> Edit
+                          </button>
+                          <button type="button" className="btn-ghost btn-sm" style={{ borderRadius: '10px', padding: '8px 12px', color: '#b91c1c' }} onClick={() => handleDeleteBlog(blog)} disabled={deletingBlogId === blog.id}>
+                            <Trash2 size={13} /> {deletingBlogId === blog.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* Blog Editor Tab */}
+        {activeTab === 'blog-editor' && (
+          <div className="card-elevated" style={{ maxWidth: '900px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: 'var(--green-50)', border: '1px solid var(--green-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <FileText size={18} color="var(--green-700)" />
+              </div>
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>{editingBlogId ? 'Edit Blog Post' : 'Add Blog Post'}</h2>
+            </div>
+
+            <form onSubmit={handleSaveBlog} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label">Title</label>
+                  <input className="input" name="title" value={blogForm.title} onChange={handleBlogChange} required placeholder="Wellness guide title" />
+                </div>
+                <div>
+                  <label className="label">URL Slug</label>
+                  <input className="input" name="slug" value={blogForm.slug} onChange={handleBlogChange} required placeholder="wellness-guide-title" />
+                </div>
+              </div>
+              <div>
+                <label className="label">Excerpt</label>
+                <textarea className="input" name="excerpt" rows={3} value={blogForm.excerpt} onChange={handleBlogChange} required style={{ resize: 'vertical' }} placeholder="Short summary shown on the blog listing..." />
+              </div>
+              <div>
+                <label className="label">Content</label>
+                <textarea className="input" name="content" rows={10} value={blogForm.content} onChange={handleBlogChange} required style={{ resize: 'vertical', lineHeight: 1.7 }} placeholder="Write the full post here..." />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr auto', gap: '16px', alignItems: 'end' }}>
+                <div>
+                  <label className="label">Cover Image URL</label>
+                  <input className="input" name="cover_image" value={blogForm.cover_image} onChange={handleBlogChange} placeholder="https://..." />
+                </div>
+                <div>
+                  <label className="label">Author</label>
+                  <input className="input" name="author_name" value={blogForm.author_name} onChange={handleBlogChange} />
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', whiteSpace: 'nowrap', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-dark)', paddingBottom: '12px' }}>
+                  <input type="checkbox" name="published" checked={blogForm.published} onChange={handleBlogChange} style={{ accentColor: 'var(--green-800)', width: '16px', height: '16px' }} />
+                  Published
+                </label>
+              </div>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {editingBlogId && (
+                  <button type="button" className="btn-outline" style={{ flex: 1, borderRadius: '12px', padding: '14px' }} onClick={handleCancelBlogEdit}>
+                    Cancel Edit
+                  </button>
+                )}
+                <button type="submit" className="btn-primary" disabled={blogSaving} style={{ flex: 1, borderRadius: '12px', padding: '14px', gap: '8px' }}>
+                  <CheckCircle size={16} />
+                  {blogSaving ? 'Saving...' : editingBlogId ? 'Save Changes' : 'Publish Blog'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Email Management Tab */}
+        {activeTab === 'email-logs' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            <div className="card-elevated">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+                <Settings size={18} color="var(--green-700)" />
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Local Email Settings</h2>
+                <StatusPill status={emailConfig.configured ? 'completed' : 'pending_payment'} />
+              </div>
+              <form onSubmit={handleSaveEmailConfig} style={{ display: 'grid', gridTemplateColumns: '1.2fr 120px 1fr 1fr', gap: '14px', alignItems: 'end' }}>
+                <div>
+                  <label className="label">SMTP Host</label>
+                  <input className="input" name="host" value={emailConfig.host} onChange={handleEmailConfigChange} placeholder="smtp.gmail.com" required />
+                </div>
+                <div>
+                  <label className="label">Port</label>
+                  <input className="input" type="number" name="port" value={emailConfig.port} onChange={handleEmailConfigChange} required />
+                </div>
+                <div>
+                  <label className="label">SMTP User</label>
+                  <input className="input" name="user" value={emailConfig.user} onChange={handleEmailConfigChange} placeholder="sender@example.com" required />
+                </div>
+                <div>
+                  <label className="label">Password</label>
+                  <input className="input" type="password" name="pass" value={emailConfig.pass} onChange={handleEmailConfigChange} placeholder={emailConfig.configured ? 'Saved password unchanged' : 'App password'} />
+                </div>
+                <div>
+                  <label className="label">From Email</label>
+                  <input className="input" type="email" name="fromEmail" value={emailConfig.fromEmail} onChange={handleEmailConfigChange} placeholder="care@tatvalife.com" required />
+                </div>
+                <div>
+                  <label className="label">From Name</label>
+                  <input className="input" name="fromName" value={emailConfig.fromName} onChange={handleEmailConfigChange} />
+                </div>
+                <div>
+                  <label className="label">Reply To</label>
+                  <input className="input" type="email" name="replyTo" value={emailConfig.replyTo} onChange={handleEmailConfigChange} placeholder="Optional" />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-dark)', whiteSpace: 'nowrap' }}>
+                    <input type="checkbox" name="secure" checked={emailConfig.secure} onChange={handleEmailConfigChange} style={{ accentColor: 'var(--green-800)', width: '16px', height: '16px' }} />
+                    SSL/TLS
+                  </label>
+                  <button type="submit" className="btn-primary btn-sm" disabled={emailConfigSaving} style={{ borderRadius: '10px', gap: '7px' }}>
+                    <Save size={14} /> {emailConfigSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  {emailConfig.configured && (
+                    <button type="button" className="btn-ghost btn-sm" disabled={emailConfigSaving} onClick={handleClearEmailConfig} style={{ borderRadius: '10px', gap: '7px', color: '#b91c1c' }}>
+                      <Trash2 size={14} /> Remove
+                    </button>
+                  )}
+                </div>
+              </form>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(320px, 1fr) minmax(320px, 1fr)', gap: '24px', alignItems: 'start' }}>
+              <div className="card-elevated">
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', marginBottom: '20px' }}>Email Dispatcher</h2>
+              <form onSubmit={handleSendEmail} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label className="label">Recipient Email</label>
+                  <input
+                    type="email"
+                    className="input"
+                    placeholder="customer@example.com"
+                    value={emailForm.recipient}
+                    onChange={e => setEmailForm(prev => ({ ...prev, recipient: e.target.value }))}
+                    required
+                  />
+                  {customerOptions.length > 0 && (
+                    <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)' }}>Quick select:</span>
+                      {customerOptions.map(customer => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => setEmailForm(prev => ({ ...prev, recipient: customer.email }))}
+                          style={{ background: 'var(--beige-100)', border: '1px solid var(--beige-300)', borderRadius: '6px', padding: '4px 8px', fontSize: '11.5px', cursor: 'pointer', color: 'var(--text-dark)' }}
+                        >
+                          {customer.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="label">Email Template</label>
+                  <select className="select" value={emailForm.template} onChange={e => handleTemplateChange(e.target.value)}>
+                    <option value="payment_link">Share Payment Link</option>
+                    <option value="order_confirmation">Order Confirmation</option>
+                    <option value="shipping_notification">Shipping Dispatch</option>
+                  </select>
+                </div>
+
+                {emailForm.template === 'payment_link' && (
+                  <div>
+                    <label className="label">Payment URL</label>
+                    <input
+                      className="input"
+                      type="url"
+                      placeholder={`${window.location.origin}/checkout?order=...`}
+                      value={emailForm.paymentLink}
+                      onChange={e => handlePaymentLinkChange(e.target.value)}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label className="label">Email Subject</label>
+                  <input
+                    type="text"
+                    className="input"
+                    placeholder="Subject line"
+                    value={emailForm.subject}
+                    onChange={e => setEmailForm(prev => ({ ...prev, subject: e.target.value }))}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Email Body</label>
+                  <textarea
+                    className="input"
+                    placeholder="Type your message here..."
+                    rows={8}
+                    value={emailForm.message}
+                    onChange={e => setEmailForm(prev => ({ ...prev, message: e.target.value }))}
+                    required
+                    style={{ resize: 'vertical', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace', fontSize: '13px' }}
+                  />
+                </div>
+
+                <button type="submit" className="btn-primary" disabled={emailSending} style={{ borderRadius: '10px', justifyContent: 'center', gap: '8px' }}>
+                  <Mail size={16} />
+                  {emailSending ? 'Sending Email...' : 'Send Email'}
+                </button>
+              </form>
+            </div>
+
+            <div className="card-elevated">
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', marginBottom: '20px' }}>Delivery Logs</h2>
+              {emailLogs.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>No email logs yet.</p>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr><th>Recipient</th><th>Template</th><th>Status</th><th>Details</th><th>Time</th></tr>
+                  </thead>
+                  <tbody>
+                    {emailLogs.map(log => (
+                      <tr key={log.id}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{log.user_email || log.recipient}</div>
+                          {log.subject && <div style={{ color: 'var(--text-light)', fontSize: '11.5px', marginTop: '2px' }}>{log.subject}</div>}
+                        </td>
+                        <td>{String(log.email_type || log.template || '').replace('_', ' ').toUpperCase()}</td>
+                        <td><StatusPill status={String(log.status || '').toLowerCase()} /></td>
+                        <td style={{ maxWidth: '200px', fontSize: '12px', color: log.status === 'failed' ? '#b91c1c' : 'var(--text-muted)' }}>
+                          {log.error || (log.status === 'sent' ? 'Delivered successfully' : 'N/A')}
+                        </td>
+                        <td>{new Date(log.sent_at).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+};
+
+export default AdminDashboard;
