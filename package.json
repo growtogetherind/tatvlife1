@@ -6,7 +6,8 @@
     "install-all": "npm install --legacy-peer-deps && npm install --prefix backend --legacy-peer-deps && npm install --prefix frontend --legacy-peer-deps",
     "dev-backend": "npm run dev --prefix backend",
     "dev-frontend": "npm run dev --prefix frontend",
-    "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\""
+    "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
+    "build": "npm install --prefix frontend && npm run build --prefix frontend"
   },
   "dependencies": {
     "firebase": "^12.14.0"
