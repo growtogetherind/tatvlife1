@@ -3,6 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, KeyRound, Mail, User, Phone, Eye, EyeOff } from 'lucide-react';
 
+const DEMO_PASSWORD = 'password1234';
+const DEMO_ACCOUNTS = {
+  'customer@gmail.com': { fullName: 'John Doe', phone: '9999999999' },
+  'admin@gmail.com': { fullName: 'System Admin', phone: '9999999999' },
+};
+
 const AuthPage = () => {
   const { user, login, register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -26,8 +32,23 @@ const AuthPage = () => {
     e.preventDefault();
     setError(''); setLoading(true);
     try {
-      if (isLogin) await login(formData.email, formData.password);
-      else await register(formData.fullName, formData.email, formData.password, formData.phone);
+      const email = formData.email.trim().toLowerCase();
+      const isDemoLogin = isLogin && DEMO_ACCOUNTS[email] && formData.password === DEMO_PASSWORD;
+
+      if (isLogin) {
+        try {
+          await login(email, formData.password);
+        } catch (err) {
+          if (isDemoLogin && ['auth/invalid-credential', 'auth/user-not-found'].includes(err.code)) {
+            const demo = DEMO_ACCOUNTS[email];
+            await register(demo.fullName, email, DEMO_PASSWORD, demo.phone);
+            return;
+          }
+          throw err;
+        }
+      } else {
+        await register(formData.fullName, email, formData.password, formData.phone);
+      }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
     } finally { setLoading(false); }
@@ -43,7 +64,7 @@ const AuthPage = () => {
   };
 
   const loadQuick = (email, password) => {
-    setFormData({ fullName: email === 'admin@gmail.com' ? 'System Admin' : 'John Doe', email, phone: '9999999999', password });
+    setFormData({ fullName: DEMO_ACCOUNTS[email].fullName, email, phone: DEMO_ACCOUNTS[email].phone, password });
     setIsLogin(true); setError('');
   };
 
@@ -168,7 +189,7 @@ const AuthPage = () => {
                 ].map(({ label, email, icon: Icon }) => (
                   <button
                     key={email}
-                    onClick={() => loadQuick(email, 'password1234')}
+                    onClick={() => loadQuick(email, DEMO_PASSWORD)}
                     style={{
                       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                       padding: '11px 16px', borderRadius: '10px',

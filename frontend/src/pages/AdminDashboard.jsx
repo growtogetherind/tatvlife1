@@ -7,7 +7,15 @@ import {
   ShoppingBag, ExternalLink, Pencil, Trash2, Settings, Save, FileText,
   Tag,
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import {
+  getCategories, getProducts, createProduct, updateProduct, deleteProduct,
+  getOrders, updateOrder,
+  getBlogs, createBlog, updateBlog, deleteBlog,
+  getCoupons, createCoupon, updateCoupon, deleteCoupon,
+  getEmailLogs, createEmailLog
+} from '../lib/firestoreService';
 
 const StatusPill = ({ status }) => {
   const map = {
@@ -42,7 +50,7 @@ const paymentMethodLabels = {
 };
 
 const AdminDashboard = () => {
-  const { user, token, isAdmin, loading } = useAuth();
+  const { user, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('overview');
@@ -75,6 +83,81 @@ const AdminDashboard = () => {
   const [orderDrafts, setOrderDrafts] = useState({});
   const [editingProductId, setEditingProductId] = useState('');
   const [editingBlogId, setEditingBlogId] = useState('');
+  const [seeding, setSeeding] = useState(false);
+
+  const handleSeedFromDbJson = async () => {
+    if (!window.confirm('This will seed/merge legacy categories, products, orders, blogs, coupons, and email logs into Firestore. Continue?')) return;
+    setError('');
+    setSuccess('');
+    setSeeding(true);
+    try {
+      const res = await fetch('/db.json');
+      if (!res.ok) throw new Error('Could not fetch db.json. Make sure it is copied to the public folder.');
+      const data = await res.json();
+      
+      // Import categories
+      const categoriesList = data.categories || [];
+      for (const item of categoriesList) {
+        await setDoc(doc(db, 'categories', item.id), item);
+      }
+      
+      // Import products
+      const productsList = data.products || [];
+      for (const item of productsList) {
+        await setDoc(doc(db, 'products', item.id), {
+          ...item,
+          price: Number(item.price),
+          stock: Number(item.stock),
+          created_at: item.created_at ? new Date(item.created_at) : new Date(),
+          updated_at: item.updated_at ? new Date(item.updated_at) : new Date(),
+        });
+      }
+
+      // Import blogs
+      const blogsList = data.blogs || [];
+      for (const item of blogsList) {
+        await setDoc(doc(db, 'blogs', item.id), {
+          ...item,
+          created_at: item.created_at ? new Date(item.created_at) : new Date(),
+        });
+      }
+
+      // Import coupons
+      const couponsList = data.coupons || [];
+      for (const item of couponsList) {
+        await setDoc(doc(db, 'coupons', item.id), {
+          ...item,
+          created_at: item.created_at ? new Date(item.created_at) : new Date(),
+          updated_at: item.updated_at ? new Date(item.updated_at) : new Date(),
+        });
+      }
+
+      // Import orders
+      const ordersList = data.orders || [];
+      for (const item of ordersList) {
+        await setDoc(doc(db, 'orders', item.id), {
+          ...item,
+          created_at: item.created_at ? new Date(item.created_at) : new Date(),
+        });
+      }
+
+      // Import email logs
+      const emailLogsList = data.emailLogs || [];
+      for (const item of emailLogsList) {
+        await setDoc(doc(db, 'emailLogs', item.id), {
+          ...item,
+          sent_at: item.sent_at ? new Date(item.sent_at) : new Date(),
+        });
+      }
+
+      setSuccess('All records from db.json have been successfully migrated and seeded into Firestore!');
+      await fetchData();
+    } catch (err) {
+      setError(err.message || 'Error during database seeding.');
+    } finally {
+      setSeeding(false);
+    }
+  };
 
   const blankProductForm = {
     name: '', slug: '', description: '', manufacturer: '',
@@ -107,59 +190,56 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     if (loading) return;
-    if (!user || !token) {
+    if (!user) {
       navigate('/login?redirect=/admin');
     } else if (!isAdmin) {
       navigate('/dashboard');
     }
-  }, [user, token, isAdmin, loading, navigate]);
+  }, [user, isAdmin, loading, navigate]);
 
   const fetchData = async () => {
     try {
       setPageLoading(true);
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const [cRes, pRes, oRes, bRes, coupRes] = await Promise.all([
-        fetch(`${API_BASE}/categories`),
-        fetch(`${API_BASE}/products`),
-        fetch(`${API_BASE}/orders`, { headers }),
-        fetch(`${API_BASE}/blogs`, { headers }),
-        fetch(`${API_BASE}/coupons`, { headers }),
+        getCategories(),
+        getProducts({ includeInactive: true }),
+        getOrders(),
+        getBlogs({ includeDrafts: true }),
+        getCoupons(),
       ]);
-
-      if (cRes.ok) setCategories(await cRes.json());
-      if (pRes.ok) setProducts(await pRes.json());
-      if (oRes.ok) setOrders(await oRes.json());
-      if (bRes.ok) setBlogs(await bRes.json());
-      if (coupRes.ok) setCoupons(await coupRes.json());
+      setCategories(cRes);
+      setProducts(pRes);
+      setOrders(oRes);
+      setBlogs(bRes);
+      setCoupons(coupRes);
     } catch (err) { console.error(err); }
     finally { setPageLoading(false); }
   };
 
   const fetchEmailLogs = async () => {
     try {
-      const res = await fetch(`${API_BASE}/emails`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setEmailLogs(await res.json());
+      const logs = await getEmailLogs();
+      setEmailLogs(logs);
     } catch (err) { console.error(err); }
   };
 
   const fetchEmailConfig = async () => {
     try {
-      const res = await fetch(`${API_BASE}/emails/config`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) {
-        const data = await res.json();
-        setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
+      const snap = await getDoc(doc(db, 'settings', 'email'));
+      if (snap.exists()) {
+        setEmailConfig(prev => ({ ...prev, ...snap.data(), pass: '' }));
       }
     } catch (err) { console.error(err); }
   };
 
 
-  useEffect(() => { if (token && isAdmin) fetchData(); }, [token, isAdmin]);
+  useEffect(() => { if (user && isAdmin) fetchData(); }, [user, isAdmin]);
   useEffect(() => {
-    if (activeTab === 'email-logs' && token && isAdmin) {
+    if (activeTab === 'email-logs' && user && isAdmin) {
       fetchEmailLogs();
       fetchEmailConfig();
     }
-  }, [activeTab, token, isAdmin]);
+  }, [activeTab, user, isAdmin]);
 
   if (loading || pageLoading) {
     return (
@@ -178,19 +258,31 @@ const AdminDashboard = () => {
     setSuccess('');
     setProductSaving(true);
     try {
-      const endpoint = editingProductId ? `${API_BASE}/products/${editingProductId}` : `${API_BASE}/products`;
-      const res = await fetch(endpoint, {
-        method: editingProductId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(productForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      const data = {
+        name: productForm.name,
+        slug: productForm.slug,
+        description: productForm.description,
+        manufacturer: productForm.manufacturer,
+        price: Number(productForm.price),
+        stock: Number(productForm.stock),
+        dosage: productForm.dosage,
+        side_effects: productForm.side_effects,
+        category_id: productForm.category_id,
+        featured: Boolean(productForm.featured),
+        active: Boolean(productForm.active),
+        image_url: productForm.image_url,
+      };
+      let saved;
+      if (editingProductId) {
+        saved = await updateProduct(editingProductId, data);
+      } else {
+        saved = await createProduct(data);
+      }
       setProducts(prev => {
-        if (editingProductId) return prev.map(product => product.id === data.id ? { ...product, ...data } : product);
-        return [data, ...prev];
+        if (editingProductId) return prev.map(product => product.id === saved.id ? saved : product);
+        return [saved, ...prev];
       });
-      setSuccess(`"${data.name}" ${editingProductId ? 'updated' : 'added'} successfully.`);
+      setSuccess(`"${saved.name}" ${editingProductId ? 'updated' : 'added'} successfully.`);
       setProductForm(blankProductForm);
       setEditingProductId('');
       setActiveTab('products');
@@ -230,12 +322,7 @@ const AdminDashboard = () => {
     setSuccess('');
     setDeletingProductId(product.id);
     try {
-      const res = await fetch(`${API_BASE}/products/${product.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete product.');
+      await deleteProduct(product.id);
       setProducts(prev => prev.filter(item => item.id !== product.id));
       setSuccess(`"${product.name}" deleted from the catalog.`);
       if (editingProductId === product.id) {
@@ -266,19 +353,26 @@ const AdminDashboard = () => {
     setSuccess('');
     setBlogSaving(true);
     try {
-      const endpoint = editingBlogId ? `${API_BASE}/blogs/${editingBlogId}` : `${API_BASE}/blogs`;
-      const res = await fetch(endpoint, {
-        method: editingBlogId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(blogForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save blog.');
-      setBlogs(prev => editingBlogId ? prev.map(blog => blog.id === data.id ? data : blog) : [data, ...prev]);
+      const data = {
+        title: blogForm.title,
+        slug: blogForm.slug,
+        excerpt: blogForm.excerpt,
+        content: blogForm.content,
+        cover_image: blogForm.cover_image,
+        author_name: blogForm.author_name,
+        published: Boolean(blogForm.published),
+      };
+      let saved;
+      if (editingBlogId) {
+        saved = await updateBlog(editingBlogId, data);
+      } else {
+        saved = await createBlog(data);
+      }
+      setBlogs(prev => editingBlogId ? prev.map(blog => blog.id === saved.id ? saved : blog) : [saved, ...prev]);
       setBlogForm(blankBlogForm);
       setEditingBlogId('');
       setActiveTab('blogs');
-      setSuccess(`"${data.title}" ${editingBlogId ? 'updated' : 'published'} successfully.`);
+      setSuccess(`"${saved.title}" ${editingBlogId ? 'updated' : 'published'} successfully.`);
       fetchData();
     } catch (err) {
       setError(err.message || 'Error saving blog.');
@@ -307,12 +401,7 @@ const AdminDashboard = () => {
     setSuccess('');
     setDeletingBlogId(blog.id);
     try {
-      const res = await fetch(`${API_BASE}/blogs/${blog.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete blog.');
+      await deleteBlog(blog.id);
       setBlogs(prev => prev.filter(item => item.id !== blog.id));
       if (editingBlogId === blog.id) {
         setEditingBlogId('');
@@ -343,15 +432,12 @@ const AdminDashboard = () => {
     setSuccess('');
     setEmailConfigSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/emails/config`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(emailConfig),
+      await setDoc(doc(db, 'settings', 'email'), {
+        ...emailConfig,
+        configured: true,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save email settings.');
-      setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
-      setSuccess('Local email settings saved.');
+      setEmailConfig(prev => ({ ...prev, configured: true, pass: '' }));
+      setSuccess('Local SMTP configuration simulated and saved.');
     } catch (err) {
       setError(err.message || 'Error saving email settings.');
     } finally {
@@ -365,14 +451,19 @@ const AdminDashboard = () => {
     setSuccess('');
     setEmailConfigSaving(true);
     try {
-      const res = await fetch(`${API_BASE}/emails/config`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+      await deleteDoc(doc(db, 'settings', 'email'));
+      setEmailConfig({
+        host: '',
+        port: 587,
+        secure: false,
+        user: '',
+        pass: '',
+        fromEmail: '',
+        fromName: 'Tatvalife Care Team',
+        replyTo: '',
+        configured: false,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to clear email settings.');
-      setEmailConfig(prev => ({ ...prev, ...data, pass: '' }));
-      setSuccess('Local email settings removed.');
+      setSuccess('Local SMTP configuration removed.');
     } catch (err) {
       setError(err.message || 'Error removing email settings.');
     } finally {
@@ -391,20 +482,28 @@ const AdminDashboard = () => {
     setSuccess('');
     setCouponSaving(true);
     try {
-      const endpoint = editingCouponId ? `${API_BASE}/coupons/${editingCouponId}` : `${API_BASE}/coupons`;
-      const res = await fetch(endpoint, {
-        method: editingCouponId ? 'PUT' : 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(couponForm),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save coupon.');
-      
-      setSuccess(`Coupon "${data.code}" ${editingCouponId ? 'updated' : 'created'} successfully.`);
+      const data = {
+        code: couponForm.code.toUpperCase(),
+        title: couponForm.title,
+        discount_type: couponForm.discount_type,
+        discount_value: Number(couponForm.discount_value),
+        min_order_amount: Number(couponForm.min_order_amount) || 0,
+        max_uses: couponForm.max_uses ? Number(couponForm.max_uses) : null,
+        expires_at: couponForm.expires_at ? new Date(couponForm.expires_at).toISOString() : null,
+        active: Boolean(couponForm.active),
+        banner_text: couponForm.banner_text,
+      };
+      let saved;
+      if (editingCouponId) {
+        saved = await updateCoupon(editingCouponId, data);
+      } else {
+        saved = await createCoupon(data);
+      }
+      setSuccess(`Coupon "${saved.code}" ${editingCouponId ? 'updated' : 'created'} successfully.`);
       setCouponForm(blankCouponForm);
       setEditingCouponId('');
-      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
-      if (cListRes.ok) setCoupons(await cListRes.json());
+      const cList = await getCoupons();
+      setCoupons(cList);
     } catch (err) { setError(err.message || 'Error saving coupon.'); }
     finally { setCouponSaving(false); }
   };
@@ -428,17 +527,10 @@ const AdminDashboard = () => {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/coupons/${coupon.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ active: !coupon.active }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to toggle coupon state.');
+      await updateCoupon(coupon.id, { active: !coupon.active });
       setSuccess(`Coupon "${coupon.code}" status updated.`);
-      
-      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
-      if (cListRes.ok) setCoupons(await cListRes.json());
+      const cList = await getCoupons();
+      setCoupons(cList);
     } catch (err) { setError(err.message || 'Error toggling coupon.'); }
   };
 
@@ -448,21 +540,14 @@ const AdminDashboard = () => {
     setSuccess('');
     setDeletingCouponId(coupon.id);
     try {
-      const res = await fetch(`${API_BASE}/coupons/${coupon.id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to delete coupon.');
-      }
+      await deleteCoupon(coupon.id);
       setSuccess(`Coupon "${coupon.code}" deleted.`);
       if (editingCouponId === coupon.id) {
         setEditingCouponId('');
         setCouponForm(blankCouponForm);
       }
-      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
-      if (cListRes.ok) setCoupons(await cListRes.json());
+      const cList = await getCoupons();
+      setCoupons(cList);
     } catch (err) { setError(err.message || 'Error deleting coupon.'); }
     finally { setDeletingCouponId(''); }
   };
@@ -491,13 +576,7 @@ const AdminDashboard = () => {
     setError('');
     setSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/orders/${order.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(updates),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update order.');
+      const data = await updateOrder(order.id, updates);
       setOrders(prev => prev.map(item => item.id === data.id ? data : item));
       setOrderDrafts(prev => {
         const next = { ...prev };
@@ -586,36 +665,21 @@ const AdminDashboard = () => {
     setSuccess('');
     setEmailSending(true);
     try {
-      const res = await fetch(`${API_BASE}/emails/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          user_email: emailForm.recipient,
-          email_type: emailForm.template,
-          subject: emailForm.subject,
-          body: emailForm.message,
-        }),
+      const log = await createEmailLog({
+        user_email: emailForm.recipient,
+        email_type: emailForm.template,
+        subject: emailForm.subject,
+        body: emailForm.message,
+        status: 'sent',
+        sent_at: new Date().toISOString(),
       });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.log) setEmailLogs(prev => [data.log, ...prev]);
-        throw new Error(data.error || 'Failed to send email.');
-      }
-
-      setEmailLogs(prev => [data, ...prev]);
-      setSuccess(`Email sent to ${emailForm.recipient}.`);
+      setEmailLogs(prev => [log, ...prev]);
+      setSuccess(`Email simulated and logged for ${emailForm.recipient}.`);
       setEmailForm({
         recipient: '',
         subject: 'Tatvalife: Action Required - Secure Payment Link',
         template: 'payment_link',
-        message: `Dear Customer,
-
-Your order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:
-
-${window.location.origin}/checkout
-
-Warm regards,
-Tatvalife Care Team`,
+        message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${window.location.origin}/checkout\n\nWarm regards,\nTatvalife Care Team`,
         paymentLink: `${window.location.origin}/checkout`,
       });
     } catch (err) {
@@ -737,6 +801,16 @@ Tatvalife Care Team`,
                   </tbody>
                 </table>
               )}
+            </div>
+
+            <div className="card-elevated" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: '20px 24px' }}>
+              <div>
+                <h3 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--green-900)', margin: '0 0 4px 0' }}>Data Migration & Seeding</h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0 }}>Import initial categories, products, orders, coupons, blogs, and configurations from the legacy database.</p>
+              </div>
+              <button className="btn-primary" onClick={handleSeedFromDbJson} disabled={seeding} style={{ padding: '12px 20px', borderRadius: '10px', fontSize: '13.5px' }}>
+                {seeding ? 'Seeding Database...' : 'Seed from db.json'}
+              </button>
             </div>
           </div>
         )}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, UserRound } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { getBlogs, getBlogBySlug } from '../lib/firestoreService';
 
 const formatDate = value => value ? new Date(value).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : '';
 
@@ -17,11 +17,14 @@ const Blog = () => {
       setLoading(true);
       setError('');
       try {
-        const res = await fetch(slug ? `${API_BASE}/blogs/${slug}` : `${API_BASE}/blogs`);
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Unable to load blog content.');
-        if (slug) setPost(data);
-        else setBlogs(data);
+        if (slug) {
+          const data = await getBlogBySlug(slug);
+          if (!data) throw new Error('Blog post not found.');
+          setPost(data);
+        } else {
+          const data = await getBlogs();
+          setBlogs(data);
+        }
       } catch (err) {
         setError(err.message || 'Unable to load blog content.');
       } finally {

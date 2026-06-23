@@ -1,0 +1,64 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper: Is the user logged in?
+    function isLoggedIn() {
+      return request.auth != null;
+    }
+
+    // Helper: Is the logged-in user an admin?
+    function isAdmin() {
+      return isLoggedIn() && 
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         request.auth.token.email == 'admin@gmail.com');
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read, write: if isLoggedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Categories Collection
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Products Collection
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Blogs Collection
+    match /blogs/{blogId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Coupons Collection
+    match /coupons/{couponId} {
+      allow read: if isLoggedIn();
+      allow write: if isAdmin();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow read: if isLoggedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow create: if isLoggedIn();
+      allow update: if isLoggedIn() && (resource.data.user_id == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Email Logs Collection
+    match /emailLogs/{logId} {
+      allow read, write: if isAdmin();
+    }
+
+    // Settings Collection (e.g. SMTP config settings/email)
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

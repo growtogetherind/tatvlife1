@@ -5,7 +5,7 @@ import {
   Activity, Microscope, Leaf, Zap, Award, Clock, Globe, ShoppingBag, Plus, Minus
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { API_BASE } from '../lib/api';
+import { getProducts } from '../lib/firestoreService';
 
 const faqs = [
   { q: 'Are the products on Tatvalife genuine?', a: 'Yes. Every treatment is sourced from licensed manufacturers with full batch traceability and certified compliance. We enforce strict verification to ensure that every customer receives authentic, high-quality treatments.' },
@@ -49,11 +49,8 @@ const Home = () => {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/products`);
-        if (res.ok) {
-          const data = await res.json();
-          setProducts(data);
-        }
+        const data = await getProducts();
+        setProducts(data);
       } catch (err) {
         console.error('Failed to fetch products on home page:', err);
       } finally {

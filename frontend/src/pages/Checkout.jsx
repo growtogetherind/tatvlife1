@@ -3,11 +3,11 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, Phone, User, Globe, CheckCircle, CreditCard, Bitcoin, Landmark, Wallet, Clock } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { validateCoupon, createOrder, incrementCouponUse } from '../lib/firestoreService';
 
 const Checkout = () => {
   const { cartItems, cartSubtotal, requiresPrescription, clearCart } = useCart();
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [address, setAddress] = useState({
@@ -41,16 +41,7 @@ const Checkout = () => {
     setCouponSuccess('');
     setValidatingCoupon(true);
     try {
-      const res = await fetch(`${API_BASE}/coupons/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          code: couponCodeInput.trim().toUpperCase(),
-          orderAmount: cartSubtotal
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Invalid coupon code');
+      const data = await validateCoupon(couponCodeInput.trim().toUpperCase(), cartSubtotal);
       setAppliedCoupon(data);
       setCouponSuccess(`Coupon "${data.code}" applied: $${Number(data.discount_amount).toFixed(2)} off!`);
     } catch (err) {
@@ -84,7 +75,7 @@ const Checkout = () => {
   const handleSubmit = async e => {
     e.preventDefault();
     setError('');
-    if (!user || !token) { navigate('/login?redirect=checkout'); return; }
+    if (!user) { navigate('/login?redirect=checkout'); return; }
     if (requiresPrescription && !prescription.base64) {
       setError('A valid prescription document is required for specialty medications.');
       return;
@@ -96,21 +87,25 @@ const Checkout = () => {
     }
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({
-          items: cartItems.map(i => ({ product_id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-          totalAmount: finalTotal,
-          shippingAddress: address,
-          prescriptionName: prescription.name,
-          prescriptionData: prescription.base64,
-          paymentMethod: paymentGateway,
-          couponCode: appliedCoupon?.code || '',
-        }),
+      await createOrder({
+        user_id: user.id,
+        user_email: user.email,
+        items: cartItems.map(i => ({ product_id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
+        total_amount: finalTotal,
+        shipping_address: address,
+        prescription_name: prescription.name || null,
+        prescription_data: prescription.base64 || null,
+        payment_status: 'unpaid',
+        order_status: 'pending_payment',
+        payment_link: '',
+        transaction_hash: '',
+        payment_method: paymentGateway,
+        coupon_code: appliedCoupon?.code || null,
+        discount_amount: appliedCoupon ? Number(cartSubtotal - finalTotal).toFixed(2) : 0,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit order');
+      if (appliedCoupon?.code) {
+        await incrementCouponUse(appliedCoupon.code);
+      }
       clearCart();
       setShowSuccessModal(true);
     } catch (err) {

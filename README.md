@@ -1,7 +1,7 @@
-# tatvlife1
+# Tatvalife
 
-Tatvalife is a comprehensive full-stack application (frontend with React, Vite, Tailwind CSS / vanilla CSS, and backend with Express and Firebase).
+Tatvalife is a React/Vite storefront backed by Firebase.
 
 ## Project Structure
-- `/backend`: Express server and backend utilities.
 - `/frontend`: React application using Vite.
+- `firestore.rules`: Firestore security rules.

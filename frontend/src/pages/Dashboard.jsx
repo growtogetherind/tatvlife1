@@ -5,7 +5,7 @@ import {
   ShoppingBag, ChevronDown, ChevronUp, ExternalLink,
   FileText, AlertCircle, CheckCircle2, Loader, Clock, Hash, MapPin, Package, CreditCard,
 } from 'lucide-react';
-import { API_BASE } from '../lib/api';
+import { getUserOrders, updateOrder } from '../lib/firestoreService';
 
 const paymentMethodLabels = {
   btc: 'Bitcoin (BTC)',
@@ -35,7 +35,7 @@ const StatusPill = ({ status }) => {
 };
 
 const Dashboard = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,30 +44,27 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => { if (!user || !token) navigate('/login?redirect=dashboard'); }, [user, token]);
+  useEffect(() => { if (!user) navigate('/login?redirect=dashboard'); }, [user]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/orders`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) setOrders(await res.json());
+      if (user?.id) {
+        const orders = await getUserOrders(user.id);
+        setOrders(orders);
+      }
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (token) fetchOrders(); }, [token]);
+  useEffect(() => { if (user?.id) fetchOrders(); }, [user]);
 
   const handleTxSubmit = async (orderId) => {
     const hash = txHashes[orderId];
     if (!hash || hash.trim().length < 10) { setError('Please enter a valid transaction hash (min 10 chars).'); return; }
     setError(''); setSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/orders/${orderId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ transaction_hash: hash }),
-      });
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+      await updateOrder(orderId, { transaction_hash: hash, order_status: 'processing' });
       setSuccess('Transaction hash submitted. Your order is now processing.');
       setTxHashes(prev => ({ ...prev, [orderId]: '' }));
       fetchOrders();

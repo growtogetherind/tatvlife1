@@ -1,6 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -21,12 +23,16 @@ const hasFirebaseConfig = Boolean(
 
 let app = null;
 let auth = null;
+let db = null;
+let storage = null;
 let googleProvider = null;
 let analytics = null;
 
 if (hasFirebaseConfig) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
+  db = getFirestore(app);
+  storage = getStorage(app);
   googleProvider = new GoogleAuthProvider();
   googleProvider.setCustomParameters({ prompt: 'select_account' });
 
@@ -41,4 +47,4 @@ if (hasFirebaseConfig) {
   }
 }
 
-export { analytics, auth, googleProvider, hasFirebaseConfig };
+export { analytics, auth, db, storage, googleProvider, hasFirebaseConfig };

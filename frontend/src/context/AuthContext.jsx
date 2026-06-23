@@ -1,127 +1,94 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
-import { API_BASE } from '../lib/api';
+import {
+  signInWithPopup,
+  signOut as firebaseSignOut,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+} from 'firebase/auth';
 import { auth, googleProvider, hasFirebaseConfig } from '../lib/firebase';
+import { getOrCreateUser, getUserDoc } from '../lib/firestoreService';
 
 const AuthContext = createContext();
 
-const readJsonResponse = async (res, fallbackMessage) => {
-  const body = await res.text();
-  let data = {};
-
-  if (body) {
-    try {
-      data = JSON.parse(body);
-    } catch {
-      data = { error: body };
-    }
-  }
-
-  if (!res.ok) {
-    throw new Error(data.error || `${fallbackMessage} (${res.status})`);
-  }
-
-  return data;
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem('tatvalife_token') || null);
+  const [user, setUser] = useState(null);   // our Firestore user profile
   const [loading, setLoading] = useState(true);
 
-  // Sync token with localStorage
+  // Listen to Firebase Auth state changes
   useEffect(() => {
-    if (token) {
-      localStorage.setItem('tatvalife_token', token);
-      fetchUserProfile(token);
-    } else {
-      localStorage.removeItem('tatvalife_token');
-      localStorage.removeItem('tatvalife_user');
-      setUser(null);
+    if (!auth) {
       setLoading(false);
+      return;
     }
-  }, [token]);
-
-  const fetchUserProfile = async (authToken) => {
-    try {
-      // Decode user data from JWT token (for demo purposes) or verify with server
-      // Here, since the token encodes user info in the routes, we can parse it 
-      // or retrieve the user object stored in localStorage on login.
-      const savedUser = localStorage.getItem('tatvalife_user');
-      if (savedUser) {
-        setUser(JSON.parse(savedUser));
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          // Try to get existing Firestore profile
+          const profile = await getUserDoc(firebaseUser.uid);
+          setUser(profile || { id: firebaseUser.uid, email: firebaseUser.email, role: 'customer' });
+        } catch {
+          setUser({ id: firebaseUser.uid, email: firebaseUser.email, role: 'customer' });
+        }
       } else {
-        // Fallback
         setUser(null);
       }
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-      setToken(null);
-    } finally {
       setLoading(false);
-    }
-  };
+    });
+    return () => unsubscribe();
+  }, []);
 
+  /** Email + Password Registration */
   const register = async (fullName, email, password, phone) => {
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ full_name: fullName, email, password, phone })
-    });
-    
-    const data = await readJsonResponse(res, 'Registration failed');
-    
-    localStorage.setItem('tatvalife_user', JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const profile = await getOrCreateUser(credential.user, { full_name: fullName, phone });
+    setUser(profile);
+    return profile;
   };
 
+  /** Email + Password Login */
   const login = async (email, password) => {
-    const res = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    
-    const data = await readJsonResponse(res, 'Login failed');
-    
-    localStorage.setItem('tatvalife_user', JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    // onAuthStateChanged will set user, but we also return it for immediacy.
+    // This also repairs missing Firestore profiles for demo/imported Auth users.
+    const profile = await getOrCreateUser(credential.user);
+    setUser(profile);
+    return profile;
   };
 
+  /** Google Sign-In via Popup */
   const loginWithGoogle = async () => {
     if (!hasFirebaseConfig || !auth || !googleProvider) {
-      throw new Error('Firebase Google authentication is not configured. Add the VITE_FIREBASE_* settings first.');
+      throw new Error('Firebase Google authentication is not configured.');
     }
-
     const result = await signInWithPopup(auth, googleProvider);
-    const idToken = await result.user.getIdToken();
-    const res = await fetch(`${API_BASE}/auth/google`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ idToken })
-    });
-
-    const data = await readJsonResponse(res, 'Google sign-in failed');
-
-    localStorage.setItem('tatvalife_user', JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-    return data.user;
+    const profile = await getOrCreateUser(result.user);
+    setUser(profile);
+    return profile;
   };
 
+  /** Sign Out */
   const logout = async () => {
     if (auth) {
-      try { await firebaseSignOut(auth); } catch (error) { console.warn('Firebase sign-out failed:', error); }
+      try { await firebaseSignOut(auth); } catch (e) { console.warn('Sign-out error:', e); }
     }
-    setToken(null);
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithGoogle, logout, isAdmin: user?.role === 'admin' }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        login,
+        register,
+        loginWithGoogle,
+        logout,
+        isAdmin: user?.role === 'admin',
+        // token kept for legacy — Firebase auth token if needed
+        token: null,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

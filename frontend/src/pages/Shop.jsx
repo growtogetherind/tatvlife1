@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { Search, ShoppingBag, Star, SlidersHorizontal, ChevronDown, Tag, Filter } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { API_BASE } from '../lib/api';
+import { getProducts, getCategories, getActiveCoupons } from '../lib/firestoreService';
 
 const ProductCard = ({ product }) => {
   const { addItem } = useCart();
@@ -97,22 +97,29 @@ const Shop = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [pRes, cRes, coupRes] = await Promise.all([
-          fetch(`${API_BASE}/products`),
-          fetch(`${API_BASE}/categories`),
-          fetch(`${API_BASE}/coupons/active`),
+        const [products, categories] = await Promise.all([
+          getProducts(),
+          getCategories(),
         ]);
-        if (pRes.ok && cRes.ok) {
-          setProducts(await pRes.json());
-          setCategories(await cRes.json());
-        }
-        if (coupRes.ok) {
-          setActiveCoupons(await coupRes.json());
-        }
+        setProducts(products);
+        setCategories(categories);
       } catch (err) {
-        console.error('Failed to fetch shop data:', err);
+        console.error('Failed to fetch shop products:', err);
       } finally {
         setLoading(false);
+      }
+
+      try {
+        const coupons = await getActiveCoupons();
+        setActiveCoupons(coupons.map(c => ({
+          code: c.code,
+          title: c.title,
+          discount_type: c.discount_type,
+          discount_value: c.discount_value,
+          banner_text: c.banner_text || `${c.title} - Use code ${c.code}`,
+        })));
+      } catch (err) {
+        console.warn('Promo coupons are unavailable for this visitor:', err);
       }
     };
     fetchData();

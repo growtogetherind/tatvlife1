@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ShieldCheck, Truck, ArrowLeft, Star, ShoppingBag, Plus, Minus, AlertTriangle, ClipboardList, Building2, PackageCheck } from 'lucide-react';
 import { useCart } from '../context/CartContext';
-import { API_BASE } from '../lib/api';
+import { getProductBySlug } from '../lib/firestoreService';
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -15,16 +15,15 @@ const ProductDetail = () => {
   const [activeTab, setActiveTab] = useState('dosage');
 
   useEffect(() => {
-    const fetch_ = async () => {
+    const load = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/products/${slug}`);
-        if (res.ok) setProduct(await res.json());
-        else setProduct(null);
+        const product = await getProductBySlug(slug);
+        setProduct(product || null);
       } catch (err) { console.error(err); }
       finally { setLoading(false); }
     };
-    fetch_();
+    load();
   }, [slug]);
 
   if (loading) return (
