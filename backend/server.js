@@ -8,17 +8,19 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 3003;
 
-// Middleware configuration
+// CORS configuration — allow localhost in dev, production domains in prod
+const allowedOrigins = [
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+  /^https:\/\/.*\.vercel\.app$/,
+  /^https:\/\/tatvalife\.com$/,
+  /^https:\/\/.*\.tatvalife\.com$/,
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
-    // Allow any localhost or 127.0.0.1 origin (with any port)
-    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    if (isLocal) {
-      return callback(null, true);
-    }
+    const allowed = allowedOrigins.some(pattern => pattern.test(origin));
+    if (allowed) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -42,7 +44,12 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error occurred.' });
 });
 
-// Start listening
-app.listen(PORT, () => {
-  console.log(`Tatvalife Node.js backend server listening on port ${PORT}`);
-});
+// Start server only when NOT in serverless (Vercel) environment
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    console.log(`Tatvalife Node.js backend server listening on port ${PORT}`);
+  });
+}
+
+// Export for Vercel serverless
+export default app;
