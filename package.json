@@ -9,9 +9,6 @@
     "dev": "concurrently \"npm run dev-backend\" \"npm run dev-frontend\"",
     "build": "npm install --prefix frontend && npm run build --prefix frontend"
   },
-  "dependencies": {
-    "firebase": "^12.14.0"
-  },
   "devDependencies": {
     "concurrently": "^8.2.2"
   }
