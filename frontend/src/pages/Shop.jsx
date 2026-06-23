@@ -85,6 +85,8 @@ const Shop = () => {
   const [priceMax, setPriceMax] = useState(100);
   const [showSidebar, setShowSidebar] = useState(true);
   const [loading, setLoading] = useState(true);
+  const [activeCoupons, setActiveCoupons] = useState([]);
+  const [dismissedBanner, setDismissedBanner] = useState(false);
 
   useEffect(() => {
     const cat = searchParams.get('category') || 'all';
@@ -95,13 +97,17 @@ const Shop = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [pRes, cRes] = await Promise.all([
+        const [pRes, cRes, coupRes] = await Promise.all([
           fetch(`${API_BASE}/products`),
           fetch(`${API_BASE}/categories`),
+          fetch(`${API_BASE}/coupons/active`),
         ]);
         if (pRes.ok && cRes.ok) {
           setProducts(await pRes.json());
           setCategories(await cRes.json());
+        }
+        if (coupRes.ok) {
+          setActiveCoupons(await coupRes.json());
         }
       } catch (err) {
         console.error('Failed to fetch shop data:', err);
@@ -151,6 +157,68 @@ const Shop = () => {
       </div>
 
       <div className="container" style={{ flex: 1, padding: '36px 28px 60px' }}>
+
+        {/* Active Promo Banner */}
+        {!dismissedBanner && activeCoupons.length > 0 && (
+          <div style={{
+            background: 'linear-gradient(135deg, var(--green-800) 0%, var(--green-950) 100%)',
+            borderRadius: '16px',
+            padding: '16px 24px',
+            marginBottom: '28px',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            boxShadow: '0 10px 25px -5px rgba(22, 101, 52, 0.15), 0 8px 10px -6px rgba(22, 101, 52, 0.15)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Background design elements */}
+            <div style={{ position: 'absolute', top: '-50%', right: '-10%', width: '150px', height: '150px', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', pointerEvents: 'none' }} />
+            <div style={{ position: 'absolute', bottom: '-50%', left: '20%', width: '100px', height: '100px', borderRadius: '50%', background: 'rgba(255,255,255,0.02)', pointerEvents: 'none' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', position: 'relative', zIndex: 1 }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(255,255,255,0.1)', display: 'grid', placeItems: 'center', flexShrink: 0, border: '1px solid rgba(255,255,255,0.15)' }}>
+                <Tag size={18} color="white" />
+              </div>
+              <div>
+                <h4 style={{ margin: '0 0 2px', fontSize: '15px', fontWeight: 700, letterSpacing: '0.01em' }}>
+                  {activeCoupons[0].title}
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.75)' }}>
+                  {activeCoupons[0].banner_text || `Use code ${activeCoupons[0].code} at checkout to claim your discount.`}
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', position: 'relative', zIndex: 1 }}>
+              <div style={{ background: 'white', color: 'var(--green-950)', padding: '6px 14px', borderRadius: '8px', fontSize: '12.5px', fontWeight: 800, fontFamily: 'ui-monospace, monospace', border: '1px solid rgba(255,255,255,0.25)' }}>
+                {activeCoupons[0].code}
+              </div>
+              <button 
+                onClick={() => setDismissedBanner(true)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'rgba(255,255,255,0.6)',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  lineHeight: '1',
+                  padding: '4px',
+                  display: 'grid',
+                  placeItems: 'center',
+                  transition: 'color 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.color = 'white'}
+                onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.6)'}
+              >
+                &times;
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>

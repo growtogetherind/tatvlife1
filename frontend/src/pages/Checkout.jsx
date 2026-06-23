@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, Phone, User, Globe, CheckCircle, CreditCard, Bitcoin } from 'lucide-react';
+import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, Phone, User, Globe, CheckCircle, CreditCard, Bitcoin, Landmark, Wallet, Clock } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 
 const Checkout = () => {
@@ -21,10 +21,52 @@ const Checkout = () => {
   });
 
   const [prescription, setPrescription] = useState({ name: '', base64: '' });
-  const [paymentGateway, setPaymentGateway] = useState('crypto');
+  const [paymentGateway, setPaymentGateway] = useState('usdt');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [couponError, setCouponError] = useState('');
+  const [couponSuccess, setCouponSuccess] = useState('');
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+
+  const finalTotal = Math.max(0.01, cartSubtotal - (appliedCoupon?.discount_amount || 0));
+
+  const handleApplyCoupon = async (e) => {
+    e.preventDefault();
+    if (!couponCodeInput.trim()) return;
+    setCouponError('');
+    setCouponSuccess('');
+    setValidatingCoupon(true);
+    try {
+      const res = await fetch(`${API_BASE}/coupons/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({
+          code: couponCodeInput.trim().toUpperCase(),
+          orderAmount: cartSubtotal
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Invalid coupon code');
+      setAppliedCoupon(data);
+      setCouponSuccess(`Coupon "${data.code}" applied: $${Number(data.discount_amount).toFixed(2)} off!`);
+    } catch (err) {
+      setCouponError(err.message || 'Failed to validate coupon.');
+      setAppliedCoupon(null);
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCodeInput('');
+    setCouponSuccess('');
+    setCouponError('');
+  };
 
   const handleInputChange = e => {
     const { name, value } = e.target;
@@ -59,10 +101,12 @@ const Checkout = () => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           items: cartItems.map(i => ({ product_id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
-          totalAmount: cartSubtotal,
+          totalAmount: finalTotal,
           shippingAddress: address,
           prescriptionName: prescription.name,
           prescriptionData: prescription.base64,
+          paymentMethod: paymentGateway,
+          couponCode: appliedCoupon?.code || '',
         }),
       });
       const data = await res.json();
@@ -96,34 +140,76 @@ const Checkout = () => {
     </div>
   );
 
-  const PaymentOption = ({ value, icon: Icon, title, subtitle }) => (
-    <label style={{
-      display: 'flex', alignItems: 'flex-start', gap: '14px', padding: '16px 18px',
-      border: '1.5px solid', borderRadius: '14px',
-      borderColor: paymentGateway === value ? 'var(--green-500)' : 'var(--beige-200)',
-      background: paymentGateway === value ? 'var(--green-50)' : 'var(--white)',
-      cursor: 'pointer', transition: 'all 0.2s',
-    }}>
-      <input type="radio" name="paymentGateway" value={value}
-        checked={paymentGateway === value} onChange={() => setPaymentGateway(value)}
-        style={{ accentColor: 'var(--green-800)', marginTop: '2px', flexShrink: 0 }}
-      />
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1 }}>
+  const CryptoIcon = ({ symbol, isSelected }) => {
+    const color = isSelected ? '#1E3F35' : 'var(--text-light)';
+    switch (symbol) {
+      case 'btc':
+        return <span style={{ fontSize: '22px', fontWeight: 'bold', color: isSelected ? '#F7931A' : color }}>₿</span>;
+      case 'eth':
+        return <span style={{ fontSize: '20px', fontWeight: 'bold', color: isSelected ? '#627EEA' : color }}>Ξ</span>;
+      case 'usdt':
+        return <span style={{ fontSize: '20px', fontWeight: 'bold', color: isSelected ? '#26A17B' : color }}>₮</span>;
+      case 'usdc':
+        return <span style={{ fontSize: '20px', fontWeight: 'bold', color: isSelected ? '#2775CA' : color }}>Ⓢ</span>;
+      case 'dai_usds':
+        return <span style={{ fontSize: '18px', fontWeight: 'bold', color: isSelected ? '#F4B731' : color }}>◈</span>;
+      case 'usd1':
+        return <span style={{ fontSize: '18px', fontWeight: 'bold', color: isSelected ? '#00c3a6' : color }}>1</span>;
+      case 'usde':
+        return <span style={{ fontSize: '18px', fontWeight: 'bold', color: isSelected ? '#ff5a00' : color }}>e</span>;
+      case 'usdg':
+        return <span style={{ fontSize: '18px', fontWeight: 'bold', color: isSelected ? '#4f46e5' : color }}>G</span>;
+      case 'usdd':
+        return <span style={{ fontSize: '18px', fontWeight: 'bold', color: isSelected ? '#0369a1' : color }}>D</span>;
+      default:
+        return <span style={{ fontSize: '18px', fontWeight: 'bold' }}>$</span>;
+    }
+  };
+
+  const PaymentOption = ({ value, label }) => {
+    const isSelected = paymentGateway === value;
+    return (
+      <div
+        onClick={() => setPaymentGateway(value)}
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          padding: '16px 12px',
+          border: isSelected ? '1.5px solid #1E3F35' : '1.5px solid #E5E5E2',
+          borderRadius: '16px',
+          background: isSelected ? '#EBF2F0' : 'var(--white)',
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          textAlign: 'center',
+          flex: 1,
+          boxShadow: isSelected ? 'var(--shadow-sm)' : 'none',
+        }}
+      >
         <div style={{
-          width: '36px', height: '36px', borderRadius: '10px',
-          background: paymentGateway === value ? 'var(--green-100)' : 'var(--beige-100)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-          transition: 'background 0.2s',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}>
-          <Icon size={18} color={paymentGateway === value ? 'var(--green-700)' : 'var(--text-muted)'} />
+          <CryptoIcon symbol={value} isSelected={isSelected} />
         </div>
-        <div>
-          <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--green-900)' }}>{title}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>{subtitle}</div>
-        </div>
+        <span style={{
+          fontSize: '11px',
+          fontWeight: 700,
+          textTransform: 'uppercase',
+          letterSpacing: '0.05em',
+          color: isSelected ? '#1E3F35' : 'var(--text-dark)',
+          whiteSpace: 'nowrap',
+        }}>
+          {label}
+        </span>
       </div>
-    </label>
-  );
+    );
+  };
 
   return (
     <div style={{ background: 'var(--cream)', minHeight: '80vh', padding: '40px 0 80px' }}>
@@ -203,15 +289,54 @@ const Checkout = () => {
             )}
 
             {/* Payment */}
-            <div className="card-elevated">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-                <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'var(--green-50)', border: '1px solid var(--green-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Bitcoin size={15} color="var(--green-700)" />
-                </div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Payment Method</h3>
+            <div className="card-elevated" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <h3 className="font-serif" style={{ fontSize: '20px', fontWeight: 600, color: 'var(--green-900)', marginBottom: '4px' }}>Confirm Order & Pay</h3>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>
+                  We will process your order and generate a secure cryptocurrency payment link.
+                </p>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <PaymentOption value="crypto" icon={Bitcoin} title="Cryptocurrency (USDT / USDC / BTC)" subtitle="Secure on-chain payment — safest for international orders" />
+
+              <div className="payment-grid">
+                <PaymentOption value="btc" label="BTC" />
+                <PaymentOption value="eth" label="ETH" />
+                <PaymentOption value="usdt" label="USDT" />
+                <PaymentOption value="usdc" label="USDC" />
+                <PaymentOption value="dai_usds" label="DAI / USDS" />
+                <PaymentOption value="usd1" label="USD1" />
+                <PaymentOption value="usde" label="USDe" />
+                <PaymentOption value="usdg" label="USDG" />
+                <PaymentOption value="usdd" label="USDD" />
+              </div>
+
+              {/* Callout Card 1: Payment Link Info */}
+              <div style={{
+                background: '#0B2D24',
+                borderRadius: '16px',
+                padding: '18px 20px',
+                display: 'flex',
+                gap: '14px',
+                alignItems: 'flex-start',
+              }}>
+                <Clock size={20} color="#EBF2F0" style={{ flexShrink: 0, marginTop: '2px' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <strong style={{ fontSize: '14px', color: 'var(--white)', fontWeight: 600 }}>Payment Link via Email</strong>
+                  <p style={{ fontSize: '12.5px', color: '#EBF2F0', margin: 0, lineHeight: 1.45 }}>
+                    A secure cryptocurrency payment link for <strong>{Number(finalTotal).toFixed(6)} {paymentGateway === 'dai_usds' ? 'DAI / USDS' : paymentGateway.toUpperCase()}</strong> will be automatically emailed to you once you place this order.
+                  </p>
+                </div>
+              </div>
+
+              {/* Callout Card 2: Shipping Notice */}
+              <div style={{
+                background: '#F7F6F2',
+                border: '1px solid #EAE8E2',
+                borderRadius: '16px',
+                padding: '16px 20px',
+              }}>
+                <p style={{ fontSize: '13px', lineHeight: 1.5, color: 'var(--text-dark)', margin: 0 }}>
+                  📦 <strong>Order Packing & Shipping:</strong> Once the payment transaction is completed, our team will immediately pack, inspect, and dispatch your order. Tracking details will be updated in your dashboard.
+                </p>
               </div>
             </div>
           </div>
@@ -239,10 +364,61 @@ const Checkout = () => {
                 ))}
               </div>
 
+              {/* Coupon Field */}
+              <div style={{ padding: '16px 0', borderBottom: '1px solid var(--beige-100)', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    style={{ flex: 1, padding: '10px 14px', borderRadius: '10px', textTransform: 'uppercase', height: '40px', fontSize: '13px' }}
+                    placeholder="Enter Coupon Code"
+                    value={couponCodeInput}
+                    onChange={e => setCouponCodeInput(e.target.value.toUpperCase())}
+                    disabled={!!appliedCoupon || validatingCoupon}
+                  />
+                  {appliedCoupon ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="btn-ghost"
+                      style={{ padding: '0 16px', borderRadius: '10px', height: '40px', border: '1px solid #b91c1c', color: '#b91c1c', fontSize: '13px', fontWeight: 600 }}
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleApplyCoupon}
+                      className="btn-primary"
+                      disabled={validatingCoupon || !couponCodeInput}
+                      style={{ padding: '0 16px', borderRadius: '10px', height: '40px', fontSize: '13px', fontWeight: 600 }}
+                    >
+                      {validatingCoupon ? 'Applying...' : 'Apply'}
+                    </button>
+                  )}
+                </div>
+                {couponError && (
+                  <div style={{ color: '#b91c1c', fontSize: '12px', marginTop: '6px', fontWeight: 500 }}>
+                    ⚠️ {couponError}
+                  </div>
+                )}
+                {couponSuccess && (
+                  <div style={{ color: 'var(--green-700)', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>
+                    ✓ {couponSuccess}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px solid var(--beige-100)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', color: 'var(--text-muted)' }}>
                   <span>Subtotal</span><span>${cartSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
+                {appliedCoupon && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', color: 'var(--green-700)', fontWeight: 600 }}>
+                    <span>Discount ({appliedCoupon.code})</span>
+                    <span>-${Number(appliedCoupon.discount_amount).toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                  </div>
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
                   <span style={{ color: 'var(--text-muted)' }}>Shipping</span>
                   <span style={{ color: 'var(--green-600)', fontWeight: 600 }}>Free Express</span>
@@ -252,7 +428,7 @@ const Checkout = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--green-900)' }}>Total</span>
                 <strong style={{ fontSize: '24px', fontWeight: 800, color: 'var(--green-900)', letterSpacing: '-0.03em' }}>
-                  ${cartSubtotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${Math.max(0.01, cartSubtotal - (appliedCoupon?.discount_amount || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </strong>
               </div>
 
@@ -313,7 +489,7 @@ const Checkout = () => {
                 Order Placed Successfully!
               </h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '14.5px', lineHeight: 1.6, margin: 0 }}>
-                Your cryptocurrency payment invoice link will be sent to your email. Your order will be confirmed within 24 hours of payment.
+                Your cryptocurrency payment invoice link for <strong>{Number(finalTotal).toFixed(6)} {paymentGateway === 'dai_usds' ? 'DAI / USDS' : paymentGateway.toUpperCase()}</strong> will be sent to your email. Your order will be confirmed within 24 hours of payment.
               </p>
             </div>
             <button
@@ -328,6 +504,21 @@ const Checkout = () => {
       )}
 
       <style>{`
+        .payment-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 12px;
+        }
+        @media (max-width: 600px) {
+          .payment-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        @media (max-width: 400px) {
+          .payment-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
         @media (max-width: 992px) {
           .checkout-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
         }

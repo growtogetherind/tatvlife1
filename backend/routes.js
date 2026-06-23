@@ -425,26 +425,67 @@ router.get('/categories', async (req, res) => {
 
 // Create Order (Checkout)
 router.post('/orders', authenticateToken, async (req, res) => {
-  const { items, totalAmount, shippingAddress, prescriptionName, prescriptionData } = req.body;
+  const { items, totalAmount, shippingAddress, prescriptionName, prescriptionData, paymentMethod, couponCode } = req.body;
 
   if (!items || !items.length || !totalAmount || !shippingAddress) {
     return res.status(400).json({ error: 'Order details and shipping address are required' });
   }
 
   try {
+    let finalDiscount = 0;
+    let appliedCode = null;
+
+    if (couponCode) {
+      const coupon = await db.getCouponByCode(couponCode);
+      if (coupon && coupon.active) {
+        const now = new Date();
+        const expired = coupon.expires_at && new Date(coupon.expires_at) < now;
+        const limitReached = coupon.max_uses !== null && coupon.max_uses !== undefined && (coupon.used_count || 0) >= coupon.max_uses;
+
+        if (!expired && !limitReached) {
+          const minOrder = Number(coupon.min_order_amount) || 0;
+          let tempSubtotal = 0;
+          for (const item of items) {
+            tempSubtotal += Number(item.price) * Number(item.quantity);
+          }
+
+          if (tempSubtotal >= minOrder) {
+            if (coupon.discount_type === 'percent') {
+              finalDiscount = Math.round((tempSubtotal * (Number(coupon.discount_value) / 100)) * 100) / 100;
+            } else {
+              finalDiscount = Number(coupon.discount_value);
+            }
+            if (finalDiscount > tempSubtotal) {
+              finalDiscount = tempSubtotal;
+            }
+            appliedCode = coupon.code.toUpperCase();
+          }
+        }
+      }
+    }
+
+    const calculatedTotal = Math.max(0.01, Number(totalAmount) - finalDiscount);
+
     const order = await db.createOrder({
       user_id: req.user.id,
       user_email: req.user.email,
       items,
-      total_amount: Number(totalAmount),
+      total_amount: Number(calculatedTotal.toFixed(2)),
       shipping_address: shippingAddress,
       prescription_name: prescriptionName || null,
       prescription_data: prescriptionData || null, // Base64 data if uploaded
       payment_status: 'unpaid',
       order_status: 'pending_payment',
       payment_link: '',
-      transaction_hash: ''
+      transaction_hash: '',
+      payment_method: paymentMethod || 'crypto',
+      coupon_code: appliedCode,
+      discount_amount: Number(finalDiscount.toFixed(2))
     });
+
+    if (appliedCode) {
+      await db.incrementCouponUse(appliedCode);
+    }
 
     res.status(201).json(order);
   } catch (error) {
@@ -601,6 +642,180 @@ router.post('/emails/log', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Log email error:', error);
     res.status(500).json({ error: 'Server error logging email' });
+  }
+});
+
+// ─── COUPONS ENDPOINTS ───────────────────────────────────────
+
+// Get all coupons (Admin only)
+router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const coupons = await db.getCoupons();
+    res.json(coupons);
+  } catch (error) {
+    console.error('Get coupons error:', error);
+    res.status(500).json({ error: 'Server error fetching coupons' });
+  }
+});
+
+// Get active coupon list (Public - for banners)
+router.get('/coupons/active', async (req, res) => {
+  try {
+    const coupons = await db.getCoupons();
+    const now = new Date();
+    // Filter active & non-expired ones
+    const active = coupons.filter(c => 
+      c.active && 
+      (!c.expires_at || new Date(c.expires_at) > now) &&
+      (c.max_uses === null || c.max_uses === undefined || (c.used_count || 0) < c.max_uses)
+    );
+    // Only return fields needed for banner
+    const bannerInfo = active.map(c => ({
+      code: c.code,
+      title: c.title,
+      discount_type: c.discount_type,
+      discount_value: c.discount_value,
+      banner_text: c.banner_text || `${c.title} - Use code ${c.code}`
+    }));
+    res.json(bannerInfo);
+  } catch (error) {
+    console.error('Get active coupons error:', error);
+    res.status(500).json({ error: 'Server error fetching active coupons' });
+  }
+});
+
+// Create a coupon (Admin only)
+router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
+  const { code, title, discount_type, discount_value, min_order_amount, max_uses, expires_at, active, banner_text } = req.body;
+
+  if (!code || !title || !discount_type || discount_value === undefined) {
+    return res.status(400).json({ error: 'Code, title, discount_type, and discount_value are required' });
+  }
+
+  try {
+    const existing = await db.getCouponByCode(code);
+    if (existing) {
+      return res.status(400).json({ error: 'Coupon code already exists' });
+    }
+
+    const coupon = await db.createCoupon({
+      code: code.toUpperCase(),
+      title,
+      discount_type,
+      discount_value: Number(discount_value),
+      min_order_amount: min_order_amount ? Number(min_order_amount) : 0,
+      max_uses: max_uses ? Number(max_uses) : null,
+      expires_at: expires_at || null,
+      active: active !== undefined ? !!active : true,
+      banner_text: banner_text || ''
+    });
+
+    res.status(201).json(coupon);
+  } catch (error) {
+    console.error('Create coupon error:', error);
+    res.status(500).json({ error: 'Server error creating coupon' });
+  }
+});
+
+// Update coupon (Admin only)
+router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { code, title, discount_type, discount_value, min_order_amount, max_uses, expires_at, active, banner_text } = req.body;
+
+  try {
+    const existing = await db.getCouponByCode(code);
+    if (existing && existing.id !== req.params.id) {
+      return res.status(400).json({ error: 'Coupon code already exists' });
+    }
+
+    const updates = {
+      code,
+      title,
+      discount_type,
+      discount_value: discount_value !== undefined ? Number(discount_value) : undefined,
+      min_order_amount: min_order_amount !== undefined ? Number(min_order_amount) : undefined,
+      max_uses: max_uses !== undefined ? (max_uses ? Number(max_uses) : null) : undefined,
+      expires_at: expires_at !== undefined ? (expires_at || null) : undefined,
+      active: active !== undefined ? !!active : undefined,
+      banner_text
+    };
+
+    const coupon = await db.updateCoupon(req.params.id, updates);
+    res.json(coupon);
+  } catch (error) {
+    console.error('Update coupon error:', error);
+    res.status(500).json({ error: 'Server error updating coupon' });
+  }
+});
+
+// Delete coupon (Admin only)
+router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await db.deleteCoupon(req.params.id);
+    res.json({ success: true, id: req.params.id });
+  } catch (error) {
+    console.error('Delete coupon error:', error);
+    res.status(500).json({ error: 'Server error deleting coupon' });
+  }
+});
+
+// Validate coupon code (User checkout)
+router.post('/coupons/validate', authenticateToken, async (req, res) => {
+  const { code, orderAmount } = req.body;
+
+  if (!code || orderAmount === undefined) {
+    return res.status(400).json({ error: 'Code and order amount are required' });
+  }
+
+  try {
+    const coupon = await db.getCouponByCode(code);
+
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon code not found' });
+    }
+
+    if (!coupon.active) {
+      return res.status(400).json({ error: 'This coupon is no longer active' });
+    }
+
+    const now = new Date();
+    if (coupon.expires_at && new Date(coupon.expires_at) < now) {
+      return res.status(400).json({ error: 'This coupon has expired' });
+    }
+
+    if (coupon.max_uses !== null && coupon.max_uses !== undefined && (coupon.used_count || 0) >= coupon.max_uses) {
+      return res.status(400).json({ error: 'This coupon limit has been reached' });
+    }
+
+    const minAmount = Number(coupon.min_order_amount) || 0;
+    if (Number(orderAmount) < minAmount) {
+      return res.status(400).json({ error: `Minimum order amount of $${minAmount.toFixed(2)} is required for this coupon` });
+    }
+
+    // Calculate discount amount
+    let discountAmount = 0;
+    if (coupon.discount_type === 'percent') {
+      discountAmount = Math.round((Number(orderAmount) * (Number(coupon.discount_value) / 100)) * 100) / 100;
+    } else {
+      discountAmount = Number(coupon.discount_value);
+    }
+
+    // Discount cannot exceed order amount
+    if (discountAmount > Number(orderAmount)) {
+      discountAmount = Number(orderAmount);
+    }
+
+    res.json({
+      valid: true,
+      code: coupon.code,
+      title: coupon.title,
+      discount_type: coupon.discount_type,
+      discount_value: coupon.discount_value,
+      discount_amount: Number(discountAmount.toFixed(2))
+    });
+
+  } catch (error) {
+    console.error('Validate coupon error:', error);
+    res.status(500).json({ error: 'Server error validating coupon' });
   }
 });
 

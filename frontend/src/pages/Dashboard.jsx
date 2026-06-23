@@ -3,9 +3,25 @@ import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   ShoppingBag, ChevronDown, ChevronUp, ExternalLink,
-  FileText, AlertCircle, CheckCircle2, Loader, Clock, Hash, MapPin, Package,
+  FileText, AlertCircle, CheckCircle2, Loader, Clock, Hash, MapPin, Package, CreditCard,
 } from 'lucide-react';
 import { API_BASE } from '../lib/api';
+
+const paymentMethodLabels = {
+  btc: 'Bitcoin (BTC)',
+  eth: 'Ethereum (ETH)',
+  usdt: 'USDT',
+  usdc: 'USDC',
+  dai_usds: 'DAI / USDS',
+  usd1: 'USD1',
+  usde: 'USDe',
+  usdg: 'USDG',
+  usdd: 'USDD',
+  card: 'Credit / Debit Card (USD)',
+  paypal: 'PayPal (USD)',
+  crypto: 'Cryptocurrency (USDT / USDC / BTC)',
+  bank: 'Bank Wire / ACH Transfer (USD)'
+};
 
 const StatusPill = ({ status }) => {
   const map = {
@@ -173,6 +189,13 @@ const Dashboard = () => {
                           {order.shipping_address.city}, {order.shipping_address.state} — {order.shipping_address.postalCode}<br />
                           {order.shipping_address.country}
                         </div>
+
+                        <h4 style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginTop: '20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <CreditCard size={13} /> Payment Method
+                        </h4>
+                        <div style={{ fontSize: '13.5px', color: 'var(--text-dark)', padding: '14px 18px', background: 'var(--white)', borderRadius: '10px', border: '1px solid var(--beige-100)' }}>
+                          {paymentMethodLabels[order.payment_method] || order.payment_method || 'Cryptocurrency (USDT / USDC / BTC)'}
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -203,7 +226,10 @@ const Dashboard = () => {
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                               <Clock size={15} color="var(--green-600)" style={{ flexShrink: 0, marginTop: '2px' }} />
                               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                                Our team is reviewing your order. Once approved, your crypto payment link will appear here.
+                                {order.payment_method === 'card' && 'Our team is reviewing your order. Once approved, your secure card payment link will appear here.'}
+                                {order.payment_method === 'paypal' && 'Our team is reviewing your order. Once approved, your PayPal payment link will appear here.'}
+                                {order.payment_method === 'bank' && 'Our team is reviewing your order. Once approved, your bank wire details will appear here.'}
+                                {(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) && 'Our team is reviewing your order. Once approved, your crypto payment link will appear here.'}
                               </p>
                             </div>
                           )}
@@ -211,18 +237,26 @@ const Dashboard = () => {
                           {order.order_status === 'pending_payment' && order.payment_link && (
                             <div>
                               <p style={{ fontSize: '13px', color: 'var(--text-dark)', marginBottom: '14px', lineHeight: 1.5 }}>
-                                Your payment checkout link is ready. Pay using BTC, ETH, USDT, or USDC.
+                                {order.payment_method === 'card' && 'Your secure card payment link is ready.'}
+                                {order.payment_method === 'paypal' && 'Your secure PayPal payment link is ready.'}
+                                {order.payment_method === 'bank' && 'Your Bank Wire / ACH instructions document link is ready.'}
+                                {(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) && `Your cryptocurrency payment invoice link is ready. Pay using ${order.payment_method === 'dai_usds' ? 'DAI / USDS' : (order.payment_method || 'usdt').toUpperCase()}.`}
                               </p>
                               <a href={order.payment_link} target="_blank" rel="noopener noreferrer" className="btn-primary btn-sm" style={{ display: 'inline-flex', width: '100%', justifyContent: 'center', marginBottom: '16px', borderRadius: '10px', gap: 6 }}>
-                                Open Crypto Gateway <ExternalLink size={13} />
+                                {order.payment_method === 'card' && 'Proceed to Secure Payment'}
+                                {order.payment_method === 'paypal' && 'Pay with PayPal'}
+                                {order.payment_method === 'bank' && 'View Bank Details'}
+                                {(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) && 'Open Crypto Gateway'}
+                                <ExternalLink size={13} />
                               </a>
                               <div style={{ borderTop: '1px solid var(--beige-100)', paddingTop: '14px' }}>
                                 <label className="label" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                  <Hash size={11} /> Transaction Hash
+                                  <Hash size={11} /> {(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) ? 'Transaction Hash' : 'Reference Number'}
                                 </label>
                                 <div style={{ display: 'flex', gap: '8px' }}>
                                   <input type="text" className="input" style={{ fontSize: '13px', borderRadius: '9px' }}
-                                    placeholder="0x..." value={txHashes[order.id] || ''}
+                                    placeholder={(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) ? '0x...' : 'Ref or Tx receipt number...'}
+                                    value={txHashes[order.id] || ''}
                                     onChange={e => setTxHashes(prev => ({ ...prev, [order.id]: e.target.value }))}
                                   />
                                   <button onClick={() => handleTxSubmit(order.id)} className="btn-primary btn-sm" style={{ borderRadius: '9px', flexShrink: 0 }}>
@@ -238,7 +272,11 @@ const Dashboard = () => {
                               <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                                 <Loader size={15} color="#2563eb" style={{ flexShrink: 0, marginTop: '2px' }} />
                                 <div style={{ fontSize: '13px', color: 'var(--text-dark)', lineHeight: 1.5 }}>
-                                  <strong>Verifying payment</strong> — Your transaction is being validated on the blockchain network.
+                                  {(['btc', 'eth', 'usdt', 'usdc', 'dai_usds', 'usd1', 'usde', 'usdg', 'usdd', 'crypto'].includes(order.payment_method) || !order.payment_method) ? (
+                                    <span><strong>Verifying payment</strong> — Your transaction is being validated on the blockchain network.</span>
+                                  ) : (
+                                    <span><strong>Verifying payment</strong> — Our billing team is verifying your payment reference.</span>
+                                  )}
                                 </div>
                               </div>
                               {order.transaction_hash && (

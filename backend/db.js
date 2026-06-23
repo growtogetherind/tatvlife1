@@ -392,7 +392,8 @@ class LocalDatabase {
         ],
         orders: [],
         emailLogs: [],
-        blogs: DEFAULT_BLOGS
+        blogs: DEFAULT_BLOGS,
+        coupons: []
       };
       fs.writeFileSync(this.filePath, JSON.stringify(data, null, 2), 'utf8');
     } else {
@@ -406,6 +407,10 @@ class LocalDatabase {
         data.emailLogs = [];
         changed = true;
       }
+      if (!Array.isArray(data.coupons)) {
+        data.coupons = [];
+        changed = true;
+      }
       if (changed) this.write(data);
     }
   }
@@ -416,7 +421,7 @@ class LocalDatabase {
       return JSON.parse(content);
     } catch (error) {
       console.error('Failed to read local DB:', error);
-      return { categories: [], products: [], users: [], orders: [], emailLogs: [], blogs: DEFAULT_BLOGS };
+      return { categories: [], products: [], users: [], orders: [], emailLogs: [], blogs: DEFAULT_BLOGS, coupons: [] };
     }
   }
 
@@ -743,6 +748,109 @@ export const db = {
     if (nextBlogs.length === blogs.length) throw new Error('Blog not found');
     localDb.saveCollection('blogs', nextBlogs);
     return { id: blogId };
+  },
+
+  // Coupons Database Operations
+  async getCoupons() {
+    if (useFirebase) {
+      const snapshot = await firestore.collection('coupons').orderBy('created_at', 'desc').get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      return [...coupons].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    }
+  },
+
+  async getCouponByCode(code) {
+    const normalizedCode = code.toUpperCase();
+    if (useFirebase) {
+      const snapshot = await firestore.collection('coupons').where('code', '==', normalizedCode).limit(1).get();
+      if (snapshot.empty) return null;
+      return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() };
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      return coupons.find(c => c.code.toUpperCase() === normalizedCode) || null;
+    }
+  },
+
+  async createCoupon(couponData) {
+    const id = 'coup_' + Math.random().toString(36).substr(2, 9);
+    const now = new Date().toISOString();
+    const newCoupon = {
+      id,
+      ...couponData,
+      code: couponData.code.toUpperCase(),
+      used_count: 0,
+      active: couponData.active !== undefined ? !!couponData.active : true,
+      created_at: now,
+      updated_at: now
+    };
+
+    if (useFirebase) {
+      await firestore.collection('coupons').doc(id).set(newCoupon);
+      return newCoupon;
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      coupons.push(newCoupon);
+      localDb.saveCollection('coupons', coupons);
+      return newCoupon;
+    }
+  },
+
+  async updateCoupon(couponId, updates) {
+    const cleanUpdates = Object.fromEntries(
+      Object.entries(updates).filter(([, value]) => value !== undefined)
+    );
+    if (cleanUpdates.code) {
+      cleanUpdates.code = cleanUpdates.code.toUpperCase();
+    }
+    cleanUpdates.updated_at = new Date().toISOString();
+
+    if (useFirebase) {
+      await firestore.collection('coupons').doc(couponId).update(cleanUpdates);
+      const doc = await firestore.collection('coupons').doc(couponId).get();
+      if (!doc.exists) throw new Error('Coupon not found');
+      return { id: doc.id, ...doc.data() };
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      const index = coupons.findIndex(c => c.id === couponId);
+      if (index === -1) throw new Error('Coupon not found');
+      coupons[index] = { ...coupons[index], ...cleanUpdates };
+      localDb.saveCollection('coupons', coupons);
+      return coupons[index];
+    }
+  },
+
+  async deleteCoupon(couponId) {
+    if (useFirebase) {
+      await firestore.collection('coupons').doc(couponId).delete();
+      return { id: couponId };
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      const nextCoupons = coupons.filter(c => c.id !== couponId);
+      if (nextCoupons.length === coupons.length) throw new Error('Coupon not found');
+      localDb.saveCollection('coupons', nextCoupons);
+      return { id: couponId };
+    }
+  },
+
+  async incrementCouponUse(code) {
+    const normalizedCode = code.toUpperCase();
+    if (useFirebase) {
+      const snapshot = await firestore.collection('coupons').where('code', '==', normalizedCode).limit(1).get();
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        const currentCount = doc.data().used_count || 0;
+        await doc.ref.update({ used_count: currentCount + 1 });
+      }
+    } else {
+      const coupons = localDb.getCollection('coupons');
+      const index = coupons.findIndex(c => c.code.toUpperCase() === normalizedCode);
+      if (index !== -1) {
+        coupons[index].used_count = (coupons[index].used_count || 0) + 1;
+        localDb.saveCollection('coupons', coupons);
+      }
+    }
   }
 };
 

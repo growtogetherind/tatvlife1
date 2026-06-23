@@ -5,6 +5,7 @@ import {
   LayoutGrid, PlusCircle, Mail, CheckCircle, Package,
   ChevronDown, ChevronUp, AlertCircle, Hash, BarChart2, Users,
   ShoppingBag, ExternalLink, Pencil, Trash2, Settings, Save, FileText,
+  Tag,
 } from 'lucide-react';
 import { API_BASE } from '../lib/api';
 
@@ -24,6 +25,22 @@ const StatusPill = ({ status }) => {
   return <span className={`status-pill ${cls}`}>{label}</span>;
 };
 
+const paymentMethodLabels = {
+  btc: 'Bitcoin (BTC)',
+  eth: 'Ethereum (ETH)',
+  usdt: 'USDT',
+  usdc: 'USDC',
+  dai_usds: 'DAI / USDS',
+  usd1: 'USD1',
+  usde: 'USDe',
+  usdg: 'USDG',
+  usdd: 'USDD',
+  card: 'Credit / Debit Card (USD)',
+  paypal: 'PayPal (USD)',
+  crypto: 'Cryptocurrency (USDT / USDC / BTC)',
+  bank: 'Bank Wire / ACH Transfer (USD)'
+};
+
 const AdminDashboard = () => {
   const { user, token, isAdmin, loading } = useAuth();
   const navigate = useNavigate();
@@ -34,6 +51,7 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [blogs, setBlogs] = useState([]);
+  const [coupons, setCoupons] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [emailSending, setEmailSending] = useState(false);
   const [productSaving, setProductSaving] = useState(false);
@@ -41,6 +59,9 @@ const AdminDashboard = () => {
   const [emailConfigSaving, setEmailConfigSaving] = useState(false);
   const [blogSaving, setBlogSaving] = useState(false);
   const [deletingBlogId, setDeletingBlogId] = useState('');
+  const [couponSaving, setCouponSaving] = useState(false);
+  const [deletingCouponId, setDeletingCouponId] = useState('');
+  const [editingCouponId, setEditingCouponId] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [emailForm, setEmailForm] = useState({
@@ -67,6 +88,11 @@ const AdminDashboard = () => {
     author_name: 'Tatvalife Care Team', published: true,
   };
   const [blogForm, setBlogForm] = useState(blankBlogForm);
+  const blankCouponForm = {
+    code: '', title: '', discount_type: 'percent', discount_value: '',
+    min_order_amount: '', max_uses: '', expires_at: '', active: true, banner_text: ''
+  };
+  const [couponForm, setCouponForm] = useState(blankCouponForm);
   const [emailConfig, setEmailConfig] = useState({
     host: '',
     port: 587,
@@ -92,17 +118,19 @@ const AdminDashboard = () => {
     try {
       setPageLoading(true);
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const [cRes, pRes, oRes, bRes] = await Promise.all([
+      const [cRes, pRes, oRes, bRes, coupRes] = await Promise.all([
         fetch(`${API_BASE}/categories`),
         fetch(`${API_BASE}/products`),
         fetch(`${API_BASE}/orders`, { headers }),
         fetch(`${API_BASE}/blogs`, { headers }),
+        fetch(`${API_BASE}/coupons`, { headers }),
       ]);
 
       if (cRes.ok) setCategories(await cRes.json());
       if (pRes.ok) setProducts(await pRes.json());
       if (oRes.ok) setOrders(await oRes.json());
       if (bRes.ok) setBlogs(await bRes.json());
+      if (coupRes.ok) setCoupons(await coupRes.json());
     } catch (err) { console.error(err); }
     finally { setPageLoading(false); }
   };
@@ -352,6 +380,98 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleCouponChange = e => {
+    const { name, value, type, checked } = e.target;
+    setCouponForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSaveCoupon = async e => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setCouponSaving(true);
+    try {
+      const endpoint = editingCouponId ? `${API_BASE}/coupons/${editingCouponId}` : `${API_BASE}/coupons`;
+      const res = await fetch(endpoint, {
+        method: editingCouponId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(couponForm),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save coupon.');
+      
+      setSuccess(`Coupon "${data.code}" ${editingCouponId ? 'updated' : 'created'} successfully.`);
+      setCouponForm(blankCouponForm);
+      setEditingCouponId('');
+      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+      if (cListRes.ok) setCoupons(await cListRes.json());
+    } catch (err) { setError(err.message || 'Error saving coupon.'); }
+    finally { setCouponSaving(false); }
+  };
+
+  const handleEditCoupon = coupon => {
+    setEditingCouponId(coupon.id);
+    setCouponForm({
+      code: coupon.code || '',
+      title: coupon.title || '',
+      discount_type: coupon.discount_type || 'percent',
+      discount_value: String(coupon.discount_value ?? ''),
+      min_order_amount: String(coupon.min_order_amount ?? ''),
+      max_uses: coupon.max_uses ? String(coupon.max_uses) : '',
+      expires_at: coupon.expires_at ? coupon.expires_at.slice(0, 16) : '',
+      active: coupon.active !== false,
+      banner_text: coupon.banner_text || '',
+    });
+  };
+
+  const handleToggleCouponActive = async coupon => {
+    setError('');
+    setSuccess('');
+    try {
+      const res = await fetch(`${API_BASE}/coupons/${coupon.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ active: !coupon.active }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to toggle coupon state.');
+      setSuccess(`Coupon "${coupon.code}" status updated.`);
+      
+      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+      if (cListRes.ok) setCoupons(await cListRes.json());
+    } catch (err) { setError(err.message || 'Error toggling coupon.'); }
+  };
+
+  const handleDeleteCoupon = async coupon => {
+    if (!window.confirm(`Delete coupon "${coupon.code}" permanently?`)) return;
+    setError('');
+    setSuccess('');
+    setDeletingCouponId(coupon.id);
+    try {
+      const res = await fetch(`${API_BASE}/coupons/${coupon.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to delete coupon.');
+      }
+      setSuccess(`Coupon "${coupon.code}" deleted.`);
+      if (editingCouponId === coupon.id) {
+        setEditingCouponId('');
+        setCouponForm(blankCouponForm);
+      }
+      const cListRes = await fetch(`${API_BASE}/coupons`, { headers: { Authorization: `Bearer ${token}` } });
+      if (cListRes.ok) setCoupons(await cListRes.json());
+    } catch (err) { setError(err.message || 'Error deleting coupon.'); }
+    finally { setDeletingCouponId(''); }
+  };
+
+  const handleCancelCouponEdit = () => {
+    setEditingCouponId('');
+    setCouponForm(blankCouponForm);
+  };
+
   const handleOrderDraftChange = (orderId, field, value) => {
     setOrderDrafts(prev => ({
       ...prev,
@@ -512,6 +632,7 @@ Tatvalife Care Team`,
     { id: 'add-product', label: 'Add Product', icon: PlusCircle },
     { id: 'blogs', label: 'Blogs', icon: FileText },
     { id: 'blog-editor', label: 'Blog Editor', icon: PlusCircle },
+    { id: 'coupons', label: 'Offers & Coupons', icon: Tag },
     { id: 'email-logs', label: 'Email Logs', icon: Mail },
   ];
 
@@ -675,6 +796,12 @@ Tatvalife Care Team`,
                           {order.shipping_address?.addressLine}<br />
                           {order.shipping_address?.city}, {order.shipping_address?.state} {order.shipping_address?.postalCode}<br />
                           {order.shipping_address?.country}
+                        </div>
+                        <div style={{ marginTop: '16px', padding: '12px 14px', background: 'var(--green-50)', border: '1px solid var(--green-100)', borderRadius: '10px', fontSize: '13px' }}>
+                          <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '11px', textTransform: 'uppercase', fontWeight: 600, marginBottom: '2px' }}>Payment Method</span>
+                          <strong style={{ color: 'var(--green-900)' }}>
+                            {paymentMethodLabels[order.payment_method] || order.payment_method || 'Cryptocurrency (USDT / USDC / BTC)'}
+                          </strong>
                         </div>
                       </div>
 
@@ -1145,6 +1272,255 @@ Tatvalife Care Team`,
               )}
             </div>
           </div>
+          </div>
+        )}
+
+        {/* Offers & Coupons Tab */}
+        {activeTab === 'coupons' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '24px', alignItems: 'start' }}>
+            {/* Create / Edit Coupon Form */}
+            <div className="card-elevated">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+                <Tag size={18} color="var(--green-700)" />
+                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>
+                  {editingCouponId ? 'Edit Coupon' : 'Create Offer Coupon'}
+                </h2>
+              </div>
+              <form onSubmit={handleSaveCoupon} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <label className="label">Coupon Code (e.g. SAVE20)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="code"
+                    required
+                    value={couponForm.code}
+                    onChange={e => handleCouponChange({ target: { name: 'code', value: e.target.value.toUpperCase() } })}
+                    placeholder="SAVE20"
+                    disabled={!!editingCouponId}
+                  />
+                </div>
+                <div>
+                  <label className="label">Offer Title</label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="title"
+                    required
+                    value={couponForm.title}
+                    onChange={handleCouponChange}
+                    placeholder="20% Off Summer Sale"
+                  />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">Discount Type</label>
+                    <select
+                      className="select"
+                      name="discount_type"
+                      value={couponForm.discount_type}
+                      onChange={handleCouponChange}
+                    >
+                      <option value="percent">Percentage (%)</option>
+                      <option value="flat">Flat Amount ($)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Discount Value</label>
+                    <input
+                      type="number"
+                      className="input"
+                      name="discount_value"
+                      required
+                      min="0.01"
+                      step="any"
+                      value={couponForm.discount_value}
+                      onChange={handleCouponChange}
+                      placeholder="20"
+                    />
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label className="label">Min Order ($)</label>
+                    <input
+                      type="number"
+                      className="input"
+                      name="min_order_amount"
+                      min="0"
+                      step="any"
+                      value={couponForm.min_order_amount}
+                      onChange={handleCouponChange}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">Max Redemptions</label>
+                    <input
+                      type="number"
+                      className="input"
+                      name="max_uses"
+                      min="1"
+                      value={couponForm.max_uses}
+                      onChange={handleCouponChange}
+                      placeholder="Unlimited"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="label">Expiry Date</label>
+                  <input
+                    type="datetime-local"
+                    className="input"
+                    name="expires_at"
+                    value={couponForm.expires_at}
+                    onChange={handleCouponChange}
+                  />
+                </div>
+                <div>
+                  <label className="label">Promo Banner Text (Public)</label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="banner_text"
+                    value={couponForm.banner_text}
+                    onChange={handleCouponChange}
+                    placeholder="Summer Sale! Get 20% off with code SAVE20"
+                  />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13.5px', fontWeight: 600, color: 'var(--text-dark)', cursor: 'pointer' }}>
+                    <input
+                      type="checkbox"
+                      name="active"
+                      checked={couponForm.active}
+                      onChange={handleCouponChange}
+                      style={{ accentColor: 'var(--green-800)', width: '16px', height: '16px' }}
+                    />
+                    Active / Live
+                  </label>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+                  {editingCouponId && (
+                    <button
+                      type="button"
+                      className="btn-outline"
+                      style={{ flex: 1, borderRadius: '12px', padding: '10px' }}
+                      onClick={handleCancelCouponEdit}
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="submit"
+                    className="btn-primary"
+                    disabled={couponSaving}
+                    style={{ flex: 1, borderRadius: '12px', padding: '10px', justifyContent: 'center' }}
+                  >
+                    {couponSaving ? 'Saving...' : editingCouponId ? 'Save Changes' : 'Create Coupon'}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Coupons List Table */}
+            <div className="card-elevated">
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', marginBottom: '20px' }}>Active & Past Coupons</h2>
+              {coupons.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', margin: 0 }}>No coupon offers created yet.</p>
+              ) : (
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Coupon Info</th>
+                      <th>Type</th>
+                      <th>Redemptions</th>
+                      <th>Min Order</th>
+                      <th>Status</th>
+                      <th>Expiry</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {coupons.map(coupon => {
+                      const now = new Date();
+                      const expired = coupon.expires_at && new Date(coupon.expires_at) < now;
+                      const limitReached = coupon.max_uses !== null && coupon.max_uses !== undefined && (coupon.used_count || 0) >= coupon.max_uses;
+                      
+                      let statusClass = 'completed'; // Active
+                      let statusLabel = 'Active';
+                      if (!coupon.active) {
+                        statusClass = 'cancelled'; // Suspended / Ended
+                        statusLabel = 'Ended';
+                      } else if (expired) {
+                        statusClass = 'pending_payment'; // Expired
+                        statusLabel = 'Expired';
+                      } else if (limitReached) {
+                        statusClass = 'processing'; // Redeemed limit
+                        statusLabel = 'Filled';
+                      }
+
+                      return (
+                        <tr key={coupon.id}>
+                          <td>
+                            <div style={{ fontWeight: 700 }}><code>{coupon.code}</code></div>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-light)', marginTop: '2px' }}>{coupon.title}</div>
+                          </td>
+                          <td>
+                            <strong>
+                              {coupon.discount_type === 'percent' 
+                                ? `${coupon.discount_value}%` 
+                                : `$${Number(coupon.discount_value).toFixed(2)}`}
+                            </strong>
+                          </td>
+                          <td>
+                            {coupon.used_count || 0} / {coupon.max_uses || '∞'}
+                          </td>
+                          <td>
+                            ${Number(coupon.min_order_amount || 0).toFixed(2)}
+                          </td>
+                          <td>
+                            <span className={`status-pill status-${statusClass}`}>{statusLabel}</span>
+                          </td>
+                          <td style={{ fontSize: '12px' }}>
+                            {coupon.expires_at ? new Date(coupon.expires_at).toLocaleDateString() : 'Never'}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              <button
+                                type="button"
+                                className="btn-outline btn-sm"
+                                style={{ borderRadius: '8px', padding: '6px 10px' }}
+                                onClick={() => handleEditCoupon(coupon)}
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-outline btn-sm"
+                                style={{ borderRadius: '8px', padding: '6px 10px', color: coupon.active ? '#b91c1c' : 'var(--green-700)' }}
+                                onClick={() => handleToggleCouponActive(coupon)}
+                              >
+                                {coupon.active ? 'End' : 'Activate'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-ghost btn-sm"
+                                style={{ borderRadius: '8px', padding: '6px 10px', color: '#b91c1c' }}
+                                onClick={() => handleDeleteCoupon(coupon)}
+                                disabled={deletingCouponId === coupon.id}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
         )}
       </main>
