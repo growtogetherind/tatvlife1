@@ -58,8 +58,8 @@ const Navbar = () => {
 
           {/* Left: Navigation Menu */}
           <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }} className="hidden-mobile">
-            <Link 
-              to="/shop" 
+            <Link
+              to="/shop"
               style={{
                 color: 'white',
                 fontSize: '13.5px',
@@ -76,9 +76,9 @@ const Navbar = () => {
             >
               Shop <ChevronDown size={11} />
             </Link>
-            
+
             <div style={{ position: 'relative', display: 'inline-block' }}>
-              <span 
+              <span
                 style={{
                   color: 'white',
                   fontSize: '13.5px',
@@ -97,8 +97,8 @@ const Navbar = () => {
               </span>
             </div>
 
-            <Link 
-              to="/shop?category=skin-care" 
+            <Link
+              to="/shop?category=skin-care"
               style={{
                 color: 'white',
                 fontSize: '13.5px',
@@ -113,8 +113,8 @@ const Navbar = () => {
               Skin Care
             </Link>
 
-            <Link 
-              to="/shop?category=hair-loss" 
+            <Link
+              to="/shop?category=hair-loss"
               style={{
                 color: 'white',
                 fontSize: '13.5px',
@@ -129,8 +129,8 @@ const Navbar = () => {
               Hair Loss
             </Link>
 
-            <Link 
-              to="/blog" 
+            <Link
+              to="/blog"
               style={{
                 color: 'white',
                 fontSize: '13.5px',
@@ -143,6 +143,22 @@ const Navbar = () => {
               onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
             >
               Blog
+            </Link>
+
+            <Link
+              to="/about"
+              style={{
+                color: 'white',
+                fontSize: '13.5px',
+                fontWeight: 500,
+                textDecoration: 'none',
+                opacity: 0.9,
+                transition: 'opacity 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = 1}
+              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
+            >
+              About
             </Link>
           </nav>
 
