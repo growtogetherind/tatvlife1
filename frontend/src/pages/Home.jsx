@@ -8,7 +8,7 @@ import { useCart } from '../context/CartContext';
 import { getProducts } from '../lib/firestoreService';
 
 const faqs = [
-  { q: 'Are the products on Tatvalife genuine?', a: 'Yes. Every treatment is sourced from licensed manufacturers with full batch traceability and certified compliance. We enforce strict verification to ensure that every customer receives authentic, high-quality treatments.' },
+  { q: 'Are the products on The WellMan Co genuine?', a: 'Yes. Every treatment is sourced from licensed manufacturers with full batch traceability and certified compliance. We enforce strict verification to ensure that every customer receives authentic, high-quality treatments.' },
   { q: 'How does the crypto payment process work?', a: 'Once your order details are verified by our administration team, you will receive a secure crypto checkout link. Pay directly from your wallet using Bitcoin, Ethereum, USDT, or USDC. Once confirmed on-chain, your order is instantly processed.' },
   { q: 'Do you ship worldwide?', a: 'Yes. We deliver to over 150 countries. All shipments are fully insured and shipped via global priority express carriers with active tracking numbers.' },
   { q: 'How are the products packaged?', a: 'All items are shipped in discreet, sturdy, unbranded packaging with no product names listed on the exterior to preserve your absolute privacy.' },
@@ -21,13 +21,13 @@ const testimonials = [
     name: 'Marcus T.',
     role: 'Self-Care Advocate',
     rating: 5,
-    text: 'I was skeptical about sourcing specialized hair loss and performance treatments online, but Tatvalife was incredibly professional. The verification process was straightforward, and the package arrived on time and completely discreet.',
+    text: 'I was skeptical about sourcing specialized hair loss and performance treatments online, but The WellMan Co was incredibly professional. The verification process was straightforward, and the package arrived on time and completely discreet.',
   },
   {
     name: 'Daniel R.',
     role: 'Fitness Enthusiast',
     rating: 5,
-    text: 'Finding a reliable source for muscle recovery and skin care products was tough until I found Tatvalife. The ordering process was simple, and shipping was incredibly fast.',
+    text: 'Finding a reliable source for muscle recovery and skin care products was tough until I found The WellMan Co. The ordering process was simple, and shipping was incredibly fast.',
   },
   {
     name: 'Liam K.',

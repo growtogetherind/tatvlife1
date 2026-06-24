@@ -1,6 +1,6 @@
 /**
  * firestoreService.js
- * All Firestore CRUD operations for Tatvalife.
+ * All Firestore CRUD operations for The WellMan Co.
  * Data is read/written directly from/to Firebase.
  */
 

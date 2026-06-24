@@ -1,21 +1,12 @@
 {
-  "version": 2,
-  "builds": [
+  "framework": "vite",
+  "installCommand": "npm install --prefix frontend --legacy-peer-deps",
+  "buildCommand": "npm run build --prefix frontend",
+  "outputDirectory": "frontend/dist",
+  "rewrites": [
     {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "dist"
-      }
-    }
-  ],
-  "routes": [
-    {
-      "handle": "filesystem"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "index.html"
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

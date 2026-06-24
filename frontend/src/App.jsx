@@ -14,6 +14,10 @@ import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import Blog from './pages/Blog';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsAndConditions from './pages/TermsAndConditions';
+import ReturnPolicy from './pages/ReturnPolicy';
+import HealthSafetyDisclaimer from './pages/HealthSafetyDisclaimer';
 
 // Styles
 import './styles/globals.css';
@@ -37,6 +41,10 @@ function AppWrapper() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsAndConditions />} />
+          <Route path="/return-policy" element={<ReturnPolicy />} />
+          <Route path="/disclaimer" element={<HealthSafetyDisclaimer />} />
         </Routes>
       </main>
 

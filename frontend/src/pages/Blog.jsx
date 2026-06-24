@@ -85,9 +85,9 @@ const Blog = () => {
     <section style={{ background: 'var(--cream)', padding: '72px 0 90px' }}>
       <div className="container">
         <div style={{ maxWidth: '760px', marginBottom: '34px' }}>
-          <div className="label">Tatvalife Journal</div>
+          <div className="label">The WellMan Co Journal</div>
           <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '46px', lineHeight: 1.05, color: 'var(--green-900)', marginBottom: '12px', fontWeight: 600 }}>Guides for discreet, informed care.</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: '16px', lineHeight: 1.7 }}>Read practical notes from the Tatvalife team on order flow, secure checkout, and wellness routines.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '16px', lineHeight: 1.7 }}>Read practical notes from the The WellMan Co team on order flow, secure checkout, and wellness routines.</p>
         </div>
 
         {blogs.length === 0 ? (

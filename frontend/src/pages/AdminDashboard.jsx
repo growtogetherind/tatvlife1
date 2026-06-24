@@ -74,9 +74,9 @@ const AdminDashboard = () => {
   const [success, setSuccess] = useState('');
   const [emailForm, setEmailForm] = useState({
     recipient: '',
-    subject: 'Tatvalife: Action Required - Secure Payment Link',
+    subject: 'The WellMan Co: Action Required - Secure Payment Link',
     template: 'payment_link',
-    message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\nhttp://localhost:5173/checkout\n\nWarm regards,\nTatvalife Care Team`,
+    message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\nhttp://localhost:5173/checkout\n\nWarm regards,\nThe WellMan Co Support Team`,
     paymentLink: 'http://localhost:5173/checkout',
   });
   const [expandedOrder, setExpandedOrder] = useState(null);
@@ -168,7 +168,7 @@ const AdminDashboard = () => {
   const [productForm, setProductForm] = useState(blankProductForm);
   const blankBlogForm = {
     title: '', slug: '', excerpt: '', content: '', cover_image: '',
-    author_name: 'Tatvalife Care Team', published: true,
+    author_name: 'The WellMan Co Support Team', published: true,
   };
   const [blogForm, setBlogForm] = useState(blankBlogForm);
   const blankCouponForm = {
@@ -183,7 +183,7 @@ const AdminDashboard = () => {
     user: '',
     pass: '',
     fromEmail: '',
-    fromName: 'Tatvalife Care Team',
+    fromName: 'The WellMan Co Support Team',
     replyTo: '',
     configured: false,
   });
@@ -389,7 +389,7 @@ const AdminDashboard = () => {
       excerpt: blog.excerpt || '',
       content: blog.content || '',
       cover_image: blog.cover_image || '',
-      author_name: blog.author_name || 'Tatvalife Care Team',
+      author_name: blog.author_name || 'The WellMan Co Support Team',
       published: blog.published !== false,
     });
     setActiveTab('blog-editor');
@@ -459,7 +459,7 @@ const AdminDashboard = () => {
         user: '',
         pass: '',
         fromEmail: '',
-        fromName: 'Tatvalife Care Team',
+        fromName: 'The WellMan Co Support Team',
         replyTo: '',
         configured: false,
       });
@@ -601,21 +601,21 @@ const AdminDashboard = () => {
   const getEmailTemplateCopy = (template, paymentLink = emailForm.paymentLink) => {
     if (template === 'order_confirmation') {
       return {
-        subject: 'Tatvalife: Order Confirmed & Paid',
-        message: `Dear Customer,\n\nWe have received your payment. Your order has been confirmed and is now being processed.\n\nThank you for shopping with us.\n\nWarm regards,\nTatvalife Care Team`,
+        subject: 'The WellMan Co: Order Confirmed & Paid',
+        message: `Dear Customer,\n\nWe have received your payment. Your order has been confirmed and is now being processed.\n\nThank you for shopping with us.\n\nWarm regards,\nThe WellMan Co Support Team`,
       };
     }
 
     if (template === 'shipping_notification') {
       return {
-        subject: 'Tatvalife: Your Order Has Been Dispatched',
-        message: `Dear Customer,\n\nYour order has been shipped and is on its way to your address. You can track shipment details in your dashboard.\n\nWarm regards,\nTatvalife Care Team`,
+        subject: 'The WellMan Co: Your Order Has Been Dispatched',
+        message: `Dear Customer,\n\nYour order has been shipped and is on its way to your address. You can track shipment details in your dashboard.\n\nWarm regards,\nThe WellMan Co Support Team`,
       };
     }
 
     return {
-      subject: 'Tatvalife: Action Required - Secure Payment Link',
-      message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${paymentLink || `${window.location.origin}/checkout`}\n\nWarm regards,\nTatvalife Care Team`,
+      subject: 'The WellMan Co: Action Required - Secure Payment Link',
+      message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${paymentLink || `${window.location.origin}/checkout`}\n\nWarm regards,\nThe WellMan Co Support Team`,
     };
   };
 
@@ -648,7 +648,7 @@ const AdminDashboard = () => {
       recipient: order.user_email || '',
       subject: `Secure Payment Link for Order #${order.id.slice(0, 8).toUpperCase()}`,
       template: 'payment_link',
-      message: `Dear ${customerName},\n\nThank you for choosing Tatvalife. Your order #${order.id.slice(0, 8).toUpperCase()} for $${Number(order.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} is pending payment.\n\nPlease complete your payment securely using the link below:\n\n${checkoutUrl}\n\nIf you have any questions, please contact our support team.\n\nWarm regards,\nTatvalife Care Team`,
+      message: `Dear ${customerName},\n\nThank you for choosing The WellMan Co. Your order #${order.id.slice(0, 8).toUpperCase()} for $${Number(order.total_amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })} is pending payment.\n\nPlease complete your payment securely using the link below:\n\n${checkoutUrl}\n\nIf you have any questions, please contact our support team.\n\nWarm regards,\nThe WellMan Co Support Team`,
       paymentLink: checkoutUrl,
     });
     setSuccess('Payment email template is ready to send.');
@@ -677,9 +677,9 @@ const AdminDashboard = () => {
       setSuccess(`Email simulated and logged for ${emailForm.recipient}.`);
       setEmailForm({
         recipient: '',
-        subject: 'Tatvalife: Action Required - Secure Payment Link',
+        subject: 'The WellMan Co: Action Required - Secure Payment Link',
         template: 'payment_link',
-        message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${window.location.origin}/checkout\n\nWarm regards,\nTatvalife Care Team`,
+        message: `Dear Customer,\n\nYour order is currently awaiting payment. Please complete your transaction by visiting the secure payment link below:\n\n${window.location.origin}/checkout\n\nWarm regards,\nThe WellMan Co Support Team`,
         paymentLink: `${window.location.origin}/checkout`,
       });
     } catch (err) {
@@ -720,7 +720,7 @@ const AdminDashboard = () => {
             </div>
             <span style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', fontWeight: 600, color: 'white' }}>Admin Console</span>
           </div>
-          <p style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.35)', margin: '4px 0 0' }}>Tatvalife Systems</p>
+          <p style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.35)', margin: '4px 0 0' }}>The WellMan Co Systems</p>
         </div>
 
         <nav style={{ padding: '12px 0', flex: 1 }}>
@@ -750,7 +750,7 @@ const AdminDashboard = () => {
             {navItems.find(n => n.id === activeTab)?.label}
           </h1>
           <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', margin: 0 }}>
-            Administrative control panel — Tatvalife platform management.
+            Administrative control panel — The WellMan Co platform management.
           </p>
         </div>
 
@@ -1205,7 +1205,7 @@ const AdminDashboard = () => {
                 </div>
                 <div>
                   <label className="label">From Email</label>
-                  <input className="input" type="email" name="fromEmail" value={emailConfig.fromEmail} onChange={handleEmailConfigChange} placeholder="care@tatvalife.com" required />
+                  <input className="input" type="email" name="fromEmail" value={emailConfig.fromEmail} onChange={handleEmailConfigChange} placeholder="Customersupport@thewellmanco.com" required />
                 </div>
                 <div>
                   <label className="label">From Name</label>

@@ -297,7 +297,7 @@ const Dashboard = () => {
                             <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                               <AlertCircle size={15} color="#b91c1c" style={{ flexShrink: 0 }} />
                               <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: 0, lineHeight: 1.5 }}>
-                                This order was cancelled. Contact <a href="mailto:care@tatvalife.com" style={{ color: 'var(--green-700)' }}>care@tatvalife.com</a>.
+                                This order was cancelled. Contact <a href="mailto:Customersupport@thewellmanco.com" style={{ color: 'var(--green-700)' }}>Customersupport@thewellmanco.com</a>.
                               </p>
                             </div>
                           )}

@@ -5,13 +5,13 @@ const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('tatvalife_cart') || '[]'); } catch { return []; }
+    try { return JSON.parse(localStorage.getItem('thewellmanco_cart') || '[]'); } catch { return []; }
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
 
   useEffect(() => {
-    localStorage.setItem('tatvalife_cart', JSON.stringify(cartItems));
+    localStorage.setItem('thewellmanco_cart', JSON.stringify(cartItems));
   }, [cartItems]);
 
   const showToast = (message) => {

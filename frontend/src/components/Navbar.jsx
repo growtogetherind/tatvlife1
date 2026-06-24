@@ -160,7 +160,7 @@ const Navbar = () => {
                 color: 'white',
                 letterSpacing: '0.04em',
                 textTransform: 'lowercase'
-              }}>tatvalife</span>
+              }}>thewellmanco</span>
             </Link>
           </div>
 

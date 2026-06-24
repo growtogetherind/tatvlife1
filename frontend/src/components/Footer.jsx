@@ -13,7 +13,7 @@ const LogoMark = () => (
       </svg>
     </div>
     <span style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', fontWeight: 600, color: 'white' }}>
-      Tatvalife
+      The WellMan Co
     </span>
   </div>
 );
@@ -112,12 +112,12 @@ const Footer = () => (
         <div>
           <ColTitle>Patient Support</ColTitle>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <a href="mailto:care@tatvalife.com" style={{
+            <a href="mailto:Customersupport@thewellmanco.com" style={{
               display: 'flex', alignItems: 'center', gap: '8px',
               color: 'rgba(255,255,255,0.65)', textDecoration: 'none', fontSize: '13.5px',
             }}>
               <Mail size={14} color="rgba(255,255,255,0.4)" />
-              care@tatvalife.com
+              Customersupport@thewellmanco.com
             </a>
             <a href="tel:+18005556626" style={{
               display: 'flex', alignItems: 'center', gap: '8px',
@@ -145,17 +145,15 @@ const Footer = () => (
         gap: '16px',
       }}>
         <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '12.5px' }}>
-          © {new Date().getFullYear()} Tatvalife Inc. All rights reserved.
+          © {new Date().getFullYear()} The WellMan Co. All rights reserved.
         </p>
         <div style={{ display: 'flex', gap: '24px' }}>
-          {['Terms of Service', 'Privacy Policy', 'Traceability Ledger'].map(t => (
-            <a key={t} href="#" style={{
-              color: 'rgba(255,255,255,0.3)', textDecoration: 'none', fontSize: '12.5px',
-              transition: 'color 0.18s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.3)'}
-            >{t}</a>
+          {[
+            { label: 'Terms of Service', to: '/terms' },
+            { label: 'Privacy Policy', to: '/privacy' },
+            { label: 'Return Policy', to: '/return-policy' }
+          ].map(link => (
+            <FootLink key={link.label} to={link.to}>{link.label}</FootLink>
           ))}
         </div>
       </div>
