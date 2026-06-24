@@ -24,11 +24,16 @@ export const AuthProvider = ({ children }) => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // Try to get existing Firestore profile
-          const profile = await getUserDoc(firebaseUser.uid);
-          setUser(profile || { id: firebaseUser.uid, email: firebaseUser.email, role: 'customer' });
+          // Try to get existing Firestore profile; repair with getOrCreateUser if missing
+          let profile = await getUserDoc(firebaseUser.uid);
+          if (!profile) {
+            profile = await getOrCreateUser(firebaseUser);
+          }
+          setUser(profile);
         } catch {
-          setUser({ id: firebaseUser.uid, email: firebaseUser.email, role: 'customer' });
+          // Fallback: ensure minimal user object has all essential fields
+          const profile = await getOrCreateUser(firebaseUser);
+          setUser(profile || { id: firebaseUser.uid, email: firebaseUser.email, role: 'customer', full_name: firebaseUser.displayName || '' });
         }
       } else {
         setUser(null);

@@ -49,15 +49,13 @@ const Dashboard = () => {
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      if (user?.id) {
-        const orders = await getUserOrders(user.id);
-        setOrders(orders);
-      }
+      const orders = await getUserOrders(user.id);
+      setOrders(orders);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { if (user?.id) fetchOrders(); }, [user]);
+  useEffect(() => { if (user?.id) fetchOrders(); }, [user?.id]);
 
   const handleTxSubmit = async (orderId) => {
     const hash = txHashes[orderId];
