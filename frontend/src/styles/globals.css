@@ -960,15 +960,19 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 .stitch-trust-track {
-  justify-content: center;
+  justify-content: flex-start;
+  width: max-content;
+  animation: stitchTrustMarquee 20s linear infinite;
+  will-change: transform;
 }
 
 .stitch-trust-group {
+  flex-shrink: 0;
   gap: 48px;
 }
 
 .stitch-trust-group + .stitch-trust-group {
-  display: none;
+  display: flex;
 }
 
 .stitch-trust-item {
@@ -1691,8 +1695,8 @@ img { display: block; max-width: 100%; height: auto; }
     padding: 24px 0;
   }
   .stitch-trust-track {
-    width: max-content;
     justify-content: flex-start;
+    width: max-content;
     animation: stitchTrustMarquee 22s linear infinite;
     will-change: transform;
   }
