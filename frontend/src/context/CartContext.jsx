@@ -1,23 +1,38 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import { CheckCircle, X } from 'lucide-react';
+import { createContext, useContext, useState, useEffect, useRef } from 'react';
+import { CheckCircle } from 'lucide-react';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('thewellmanco_cart') || '[]'); } catch { return []; }
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(window.localStorage.getItem('thewellmanco_cart') || '[]');
+    } catch {
+      return [];
+    }
   });
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+  const toastTimers = useRef([]);
 
   useEffect(() => {
-    localStorage.setItem('thewellmanco_cart', JSON.stringify(cartItems));
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('thewellmanco_cart', JSON.stringify(cartItems));
+    }
   }, [cartItems]);
+
+  useEffect(() => () => {
+    toastTimers.current.forEach(clearTimeout);
+  }, []);
 
   const showToast = (message) => {
     const id = Date.now();
     setToasts(prev => [...prev, { id, message }]);
-    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+    const timer = window.setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, 3500);
+    toastTimers.current.push(timer);
   };
 
   const addItem = (product, quantity = 1) => {
@@ -35,7 +50,10 @@ export const CartProvider = ({ children }) => {
   };
 
   const updateQuantity = (productId, quantity) => {
-    if (quantity <= 0) { removeItem(productId); return; }
+    if (quantity <= 0) {
+      removeItem(productId);
+      return;
+    }
     setCartItems(prev => prev.map(i => i.product.id === productId ? { ...i, quantity } : i));
   };
 
@@ -52,7 +70,6 @@ export const CartProvider = ({ children }) => {
       cartCount, cartSubtotal, requiresPrescription, toasts,
     }}>
       {children}
-      {/* Toast Notifications */}
       <div className="toast-container">
         {toasts.map(toast => (
           <div key={toast.id} className="toast">

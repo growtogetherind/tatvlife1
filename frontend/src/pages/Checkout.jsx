@@ -85,6 +85,15 @@ const Checkout = () => {
       setError('Please complete all shipping address fields.');
       return;
     }
+    if (!/^\+?[0-9\s().-]{7,15}$/.test(address.phone)) {
+      setError('Please enter a valid phone number.');
+      return;
+    }
+    if (address.postalCode.trim().length < 3) {
+      setError('Please enter a valid postal code.');
+      return;
+    }
+
     try {
       setSubmitting(true);
       await createOrder({
@@ -216,7 +225,7 @@ const Checkout = () => {
         </div>
 
         {error && (
-          <div className="alert alert-error" style={{ marginBottom: '24px' }}>
+          <div className="alert alert-error" style={{ marginBottom: '24px' }} aria-live="assertive">
             <ShieldCheck size={16} style={{ flexShrink: 0, marginTop: '1px' }} />
             <span>{error}</span>
           </div>
@@ -346,7 +355,12 @@ const Checkout = () => {
                   <div key={item.product.id} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                     <img
                       src={item.product.image_url || `https://picsum.photos/seed/${item.product.slug}/56/56`}
-                      alt="" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', background: 'var(--beige-100)', flexShrink: 0 }}
+                      alt={item.product.name}
+                      loading="lazy"
+                      decoding="async"
+                      width="56"
+                      height="56"
+                      style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '8px', background: 'var(--beige-100)', flexShrink: 0 }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: '13px', fontWeight: 600, margin: 0, lineHeight: 1.3, color: 'var(--text-dark)' }}>{item.product.name}</p>

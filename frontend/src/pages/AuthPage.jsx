@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Shield, KeyRound, Mail, User, Phone, Eye, EyeOff } from 'lucide-react';
+import BrandLogo from '../components/BrandLogo';
 
 const DEMO_PASSWORD = 'password1234';
 const DEMO_ACCOUNTS = {
@@ -30,14 +31,30 @@ const AuthPage = () => {
 
   const handleSubmit = async e => {
     e.preventDefault();
-    setError(''); setLoading(true);
+    setError('');
+
+    const email = formData.email.trim().toLowerCase();
+    const password = formData.password.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError('Please enter a valid email address.');
+      return;
+    }
+    if (!isLogin && formData.fullName.trim().length < 2) {
+      setError('Please enter your full name.');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const email = formData.email.trim().toLowerCase();
-      const isDemoLogin = isLogin && DEMO_ACCOUNTS[email] && formData.password === DEMO_PASSWORD;
+      const isDemoLogin = isLogin && DEMO_ACCOUNTS[email] && password === DEMO_PASSWORD;
 
       if (isLogin) {
         try {
-          await login(email, formData.password);
+          await login(email, password);
         } catch (err) {
           if (isDemoLogin && ['auth/invalid-credential', 'auth/user-not-found'].includes(err.code)) {
             const demo = DEMO_ACCOUNTS[email];
@@ -47,7 +64,7 @@ const AuthPage = () => {
           throw err;
         }
       } else {
-        await register(formData.fullName, email, formData.password, formData.phone);
+        await register(formData.fullName, email, password, formData.phone);
       }
     } catch (err) {
       setError(err.message || 'Authentication failed. Please verify your credentials.');
@@ -72,17 +89,8 @@ const AuthPage = () => {
     <div style={{ background: 'var(--cream)', minHeight: '85vh', display: 'flex', alignItems: 'center', padding: '40px 0' }}>
       <div className="container" style={{ maxWidth: '460px' }}>
 
-        {/* Logo mark */}
         <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '28px' }}>
-          <div style={{
-            width: '52px', height: '52px', background: 'var(--green-800)',
-            borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 8px 24px rgba(13,34,24,0.2)',
-          }}>
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none">
-              <path d="M12 2C8.5 2 5 5 5 9C5 13 8 15.5 12 22C16 15.5 19 13 19 9C19 5 15.5 2 12 2Z" fill="white" opacity="0.9"/>
-            </svg>
-          </div>
+          <BrandLogo className="auth-brand-logo" />
         </div>
 
         <div className="card-elevated" style={{ padding: '36px' }}>
@@ -113,7 +121,7 @@ const AuthPage = () => {
           </h2>
 
           {error && (
-            <div className="alert alert-error" style={{ marginBottom: '20px' }}>
+            <div className="alert alert-error" style={{ marginBottom: '20px' }} aria-live="assertive">
               <Shield size={15} style={{ flexShrink: 0 }} />
               <span>{error}</span>
             </div>
@@ -126,7 +134,7 @@ const AuthPage = () => {
                 <label className="label">Full Name</label>
                 <div style={{ position: 'relative' }}>
                   <User size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-                  <input type="text" name="fullName" className="input" style={{ paddingLeft: '42px' }} value={formData.fullName} onChange={handleChange} required placeholder="John Doe" />
+                  <input type="text" name="fullName" className="input" style={{ paddingLeft: '42px' }} value={formData.fullName} onChange={handleChange} required placeholder="John Doe" aria-label="Full name" />
                 </div>
               </div>
             )}
@@ -135,7 +143,7 @@ const AuthPage = () => {
               <label className="label">Email Address</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-                <input type="email" name="email" className="input" style={{ paddingLeft: '42px' }} value={formData.email} onChange={handleChange} required placeholder="you@example.com" />
+                <input type="email" name="email" className="input" style={{ paddingLeft: '42px' }} value={formData.email} onChange={handleChange} required placeholder="you@example.com" aria-label="Email address" />
               </div>
             </div>
 
@@ -144,7 +152,7 @@ const AuthPage = () => {
                 <label className="label">Phone Number <span style={{ textTransform: 'none', fontSize: '11px', color: 'var(--text-light)', fontWeight: 400 }}>(optional)</span></label>
                 <div style={{ position: 'relative' }}>
                   <Phone size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-                  <input type="tel" name="phone" className="input" style={{ paddingLeft: '42px' }} value={formData.phone} onChange={handleChange} placeholder="+91 9000000000" />
+                  <input type="tel" name="phone" className="input" style={{ paddingLeft: '42px' }} value={formData.phone} onChange={handleChange} placeholder="+91 9000000000" aria-label="Phone number" />
                 </div>
               </div>
             )}
@@ -153,8 +161,8 @@ const AuthPage = () => {
               <label className="label">Password</label>
               <div style={{ position: 'relative' }}>
                 <KeyRound size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)' }} />
-                <input type={showPassword ? 'text' : 'password'} name="password" className="input" style={{ paddingLeft: '42px', paddingRight: '44px' }} value={formData.password} onChange={handleChange} required placeholder="••••••••" />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}>
+                <input type={showPassword ? 'text' : 'password'} name="password" className="input" style={{ paddingLeft: '42px', paddingRight: '44px' }} value={formData.password} onChange={handleChange} required placeholder="••••••••" aria-label="Password" />
+                <button type="button" onClick={() => setShowPassword(!showPassword)} aria-label={showPassword ? 'Hide password' : 'Show password'} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}>
                   {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
                 </button>
               </div>

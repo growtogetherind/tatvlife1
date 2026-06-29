@@ -1,0 +1,17 @@
+{
+  "name": "The WellMan Co",
+  "short_name": "The WellMan Co",
+  "description": "Premium men’s wellness and specialty treatments with discreet shipping.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf9f6",
+  "theme_color": "#0d2218",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

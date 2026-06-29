@@ -13,7 +13,12 @@ const ProductCard = ({ product }) => {
       <Link to={`/product/${product.slug}`} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
         <div className="product-image-wrap">
           <img
-            src={img} alt={product.name}
+            src={img}
+            alt={product.name}
+            loading="lazy"
+            decoding="async"
+            width="400"
+            height="400"
             onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/400/400`; }}
           />
           {product.featured && (
@@ -232,8 +237,11 @@ const Shop = () => {
           <div style={{ position: 'relative', flex: '1 1 280px' }}>
             <Search size={15} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', pointerEvents: 'none' }} />
             <input
-              className="input" style={{ paddingLeft: '42px' }}
-              placeholder="Search medications..." value={search}
+              className="input"
+              style={{ paddingLeft: '42px' }}
+              placeholder="Search medications..."
+              aria-label="Search medications"
+              value={search}
               onChange={e => setSearch(e.target.value)}
             />
           </div>

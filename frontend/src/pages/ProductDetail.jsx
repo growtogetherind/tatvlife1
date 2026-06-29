@@ -89,7 +89,12 @@ const ProductDetail = () => {
               aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <img
-                src={img} alt={product.name}
+                src={img}
+                alt={product.name}
+                loading="lazy"
+                decoding="async"
+                width="500"
+                height="500"
                 style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px' }}
                 onError={e => { e.target.src = `https://picsum.photos/seed/${product.id}/500/500`; }}
               />
@@ -226,7 +231,9 @@ const ProductDetail = () => {
                 borderRadius: '12px', overflow: 'hidden',
               }}>
                 <button
+                  type="button"
                   onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                  aria-label="Decrease quantity"
                   style={{ width: '44px', height: '48px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--beige-100)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}
@@ -235,7 +242,9 @@ const ProductDetail = () => {
                 </button>
                 <span style={{ width: '36px', textAlign: 'center', fontSize: '16px', fontWeight: 700, color: 'var(--text-dark)' }}>{quantity}</span>
                 <button
+                  type="button"
                   onClick={() => setQuantity(q => q + 1)}
+                  aria-label="Increase quantity"
                   style={{ width: '44px', height: '48px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', transition: 'background 0.15s' }}
                   onMouseEnter={e => e.currentTarget.style.background = 'var(--beige-100)'}
                   onMouseLeave={e => e.currentTarget.style.background = 'none'}

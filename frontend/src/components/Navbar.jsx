@@ -1,8 +1,24 @@
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { useAuth } from '../context/AuthContext';
-import { ShoppingBag, User, LogOut, LayoutDashboard, Zap, Search, ChevronDown } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
+import {
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Search,
+  ShoppingBag,
+  User,
+  X,
+} from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useCart } from '../context/CartContext';
+import BrandLogo from './BrandLogo';
+
+const navItems = [
+  { label: 'Hair', to: '/shop?category=hair-loss' },
+  { label: 'Skin', to: '/shop?category=skin-care' },
+  { label: 'Sexual Health', to: '/shop?category=sexual-health' },
+  { label: 'Muscle', to: '/shop?category=muscle-growth' },
+];
 
 const Navbar = () => {
   const { setIsCartOpen, cartCount } = useCart();
@@ -10,307 +26,133 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const isActive = (path) => location.pathname === path;
+  const isActive = (item) => {
+    if (item.to.includes('?')) {
+      return `${location.pathname}${location.search}` === item.to;
+    }
 
-  const handleSearchSubmit = (e) => {
-    if (e.key === 'Enter') {
-      navigate(`/shop?search=${encodeURIComponent(searchQuery)}`);
+    return location.pathname === item.to;
+  };
+
+  const handleSearchSubmit = (event) => {
+    if (event.key === 'Enter' && searchQuery.trim()) {
+      event.preventDefault();
+      navigate(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+      setIsMenuOpen(false);
     }
   };
 
+  const closeMenu = () => setIsMenuOpen(false);
+
   return (
     <>
-      {/* Promo Bar */}
-      <div className="promo-bar" style={{
-        background: 'var(--green-950)',
-        color: 'rgba(255,255,255,0.75)',
-        textAlign: 'center',
-        padding: '9px 24px',
-        fontSize: '12px',
-        fontWeight: 500,
-        letterSpacing: '0.04em',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)'
-      }}>
-        <Zap size={11} color="var(--green-300)" />
-        <span>Free DHL Express Shipping on specialty orders over $250</span>
-      </div>
+      <header className="site-header">
+        <div className="container site-nav-shell">
+          <button
+            type="button"
+            className="site-icon-button site-menu-button"
+            onClick={() => setIsMenuOpen(value => !value)}
+            aria-label={isMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={isMenuOpen}
+          >
+            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
 
-      <header style={{
-        background: 'var(--green-900)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 900,
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
-        boxShadow: '0 4px 20px rgba(5,20,9,0.15)',
-      }}>
-        <div className="container" style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr auto 1fr',
-          alignItems: 'center',
-          height: '76px',
-          gap: '20px',
-        }}>
+          <Link to="/" className="site-brand" onClick={closeMenu}>
+            <BrandLogo className="site-brand-logo" />
+          </Link>
 
-          {/* Left: Navigation Menu */}
-          <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }} className="hidden-mobile">
-            <Link
-              to="/shop"
-              style={{
-                color: 'white',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textDecoration: 'none',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px',
-                opacity: 0.9,
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-            >
-              Shop <ChevronDown size={11} />
-            </Link>
-
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <span
-                style={{
-                  color: 'white',
-                  fontSize: '13.5px',
-                  fontWeight: 500,
-                  cursor: 'pointer',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  opacity: 0.9,
-                  transition: 'opacity 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.opacity = 1}
-                onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
+          <nav className="site-nav-links hidden-mobile" aria-label="Primary navigation">
+            {navItems.map(item => (
+              <Link
+                key={item.label}
+                to={item.to}
+                className={`site-nav-link ${isActive(item) ? 'active' : ''}`}
               >
-                Collections <ChevronDown size={11} />
-              </span>
-            </div>
-
-            <Link
-              to="/shop?category=skin-care"
-              style={{
-                color: 'white',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textDecoration: 'none',
-                opacity: 0.9,
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-            >
-              Skin Care
-            </Link>
-
-            <Link
-              to="/shop?category=hair-loss"
-              style={{
-                color: 'white',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textDecoration: 'none',
-                opacity: 0.9,
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-            >
-              Hair Loss
-            </Link>
-
-            <Link
-              to="/blog"
-              style={{
-                color: 'white',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textDecoration: 'none',
-                opacity: 0.9,
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-            >
-              Blog
-            </Link>
-
-            <Link
-              to="/about"
-              style={{
-                color: 'white',
-                fontSize: '13.5px',
-                fontWeight: 500,
-                textDecoration: 'none',
-                opacity: 0.9,
-                transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-            >
-              About
-            </Link>
+                {item.label}
+              </Link>
+            ))}
           </nav>
 
-          {/* Centered: Logo */}
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <Link to="/" style={{
-              display: 'flex',
-              alignItems: 'center',
-              textDecoration: 'none',
-            }}>
-              <span style={{
-                fontFamily: 'var(--font-serif)',
-                fontSize: '26px',
-                fontWeight: 400,
-                color: 'white',
-                letterSpacing: '0.04em',
-                textTransform: 'lowercase'
-              }}>thewellmanco</span>
+          <div className="site-actions">
+            <Link to="/shop" className="site-icon-button hidden-mobile" aria-label="Search products">
+              <Search size={15} />
             </Link>
-          </div>
 
-          {/* Right: Actions */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', justifyContent: 'flex-end' }}>
-            
-            {/* Search Input Bar */}
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }} className="hidden-mobile">
-              <Search size={14} color="rgba(255,255,255,0.6)" style={{ position: 'absolute', left: '12px', pointerEvents: 'none' }} />
-              <input 
-                type="text" 
-                placeholder="What are you looking for?" 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                onKeyDown={handleSearchSubmit}
-                style={{
-                  background: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '9999px',
-                  padding: '7px 16px 7px 34px',
-                  color: 'white',
-                  fontSize: '12.5px',
-                  outline: 'none',
-                  width: '180px',
-                  transition: 'width 0.2s, background 0.2s, border-color 0.2s'
-                }}
-                onFocus={e => {
-                  e.currentTarget.style.width = '220px';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)';
-                }}
-                onBlur={e => {
-                  e.currentTarget.style.width = '180px';
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.06)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                }}
-              />
-            </div>
-
-            {/* Admin Dashboard Control */}
             {isAdmin && (
-              <Link to="/admin" style={{
-                display: 'inline-flex', alignItems: 'center', gap: '6px',
-                color: 'white', fontSize: '12.5px', fontWeight: 600,
-                textDecoration: 'none', background: 'rgba(255,255,255,0.1)',
-                border: '1px solid rgba(255,255,255,0.15)',
-                padding: '6px 14px', borderRadius: '9999px',
-                transition: 'all 0.2s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.18)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-              >
+              <Link to="/admin" className="site-admin-link">
                 <LayoutDashboard size={13} />
                 <span className="hidden-mobile">Admin</span>
               </Link>
             )}
 
-            {/* Profile / Sign-in */}
             {user ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <Link to="/dashboard" style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  width: '36px', height: '36px', borderRadius: '50%',
-                  border: '1px solid rgba(255,255,255,0.15)',
-                  background: 'rgba(255,255,255,0.06)',
-                  color: 'white', transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
-                title="Go to Dashboard"
-                >
+              <div className="site-user-actions">
+                <Link to="/dashboard" className="site-icon-button" title="Go to dashboard" aria-label="Go to dashboard">
                   <User size={15} />
                 </Link>
                 <button
+                  type="button"
                   onClick={logout}
-                  style={{
-                    background: 'none', border: 'none', color: 'rgba(255,255,255,0.65)',
-                    cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center',
-                    transition: 'color 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.color = 'white'}
-                  onMouseLeave={e => e.currentTarget.style.color = 'rgba(255,255,255,0.65)'}
-                  title="Sign Out"
+                  aria-label="Sign out"
+                  className="site-icon-button site-icon-button-subtle"
+                  title="Sign out"
                 >
                   <LogOut size={15} />
                 </button>
               </div>
             ) : (
-              <Link to="/login" style={{
-                color: 'white', textDecoration: 'none', fontSize: '13.5px', fontWeight: 500,
-                opacity: 0.9, transition: 'opacity 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.opacity = 1}
-              onMouseLeave={e => e.currentTarget.style.opacity = 0.9}
-              >Sign In</Link>
+              <Link to="/login" className="site-icon-button" aria-label="Sign in">
+                <User size={16} />
+              </Link>
             )}
 
-            {/* Cart Icon */}
             <button
+              type="button"
               onClick={() => setIsCartOpen(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-                padding: '6px',
-                transition: 'transform 0.2s',
-                opacity: 0.9,
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.opacity = 1; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.opacity = 0.9; }}
+              aria-label="Open cart"
+              className="site-icon-button site-cart-button"
             >
               <ShoppingBag size={20} />
               {cartCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: '0px', right: '0px',
-                  background: '#22c55e', color: 'white',
-                  fontSize: '9px', fontWeight: 700,
-                  width: '15px', height: '15px',
-                  borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  border: '1.5px solid var(--green-900)',
-                  lineHeight: 1,
-                }}>
-                  {cartCount}
-                </span>
+                <span className="site-cart-count">{cartCount}</span>
               )}
             </button>
           </div>
         </div>
+
+        {isMenuOpen && (
+          <div className="site-mobile-panel">
+            <div className="container">
+              <div className="site-mobile-search">
+                <Search size={16} />
+                <input
+                  type="text"
+                  placeholder="Search wellness"
+                  aria-label="Search wellness products"
+                  value={searchQuery}
+                  onChange={event => setSearchQuery(event.target.value)}
+                  onKeyDown={handleSearchSubmit}
+                />
+              </div>
+
+              <nav className="site-mobile-links" aria-label="Mobile navigation">
+                {navItems.map(item => (
+                  <Link key={item.label} to={item.to} onClick={closeMenu}>
+                    {item.label}
+                  </Link>
+                ))}
+                {isAdmin && (
+                  <Link to="/admin" onClick={closeMenu}>
+                    Admin
+                  </Link>
+                )}
+              </nav>
+            </div>
+          </div>
+        )}
       </header>
     </>
   );

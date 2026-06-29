@@ -30,6 +30,13 @@ const normaliseDoc = (obj) => ({
   updated_at: toISO(obj.updated_at),
 });
 
+const ensureFirestore = () => {
+  if (!db) {
+    throw new Error('Firebase Firestore is not configured.');
+  }
+  return db;
+};
+
 // ─── USERS ───────────────────────────────────────────────────────────────────
 
 const ADMIN_EMAILS = ['admin@gmail.com'];
@@ -39,6 +46,7 @@ const ADMIN_EMAILS = ['admin@gmail.com'];
  * Creates the user doc if it doesn't exist, returns the profile.
  */
 export const getOrCreateUser = async (firebaseUser, overrideData = {}) => {
+  ensureFirestore();
   const ref = doc(db, 'users', firebaseUser.uid);
   const snap = await getDoc(ref);
 
@@ -64,6 +72,7 @@ export const getOrCreateUser = async (firebaseUser, overrideData = {}) => {
 
 /** Fetch a user profile from Firestore by UID. */
 export const getUserDoc = async (uid) => {
+  if (!db) return null;
   const snap = await getDoc(doc(db, 'users', uid));
   if (!snap.exists()) return null;
   return normaliseDoc(docToObj(snap));
@@ -72,6 +81,7 @@ export const getUserDoc = async (uid) => {
 // ─── CATEGORIES ──────────────────────────────────────────────────────────────
 
 export const getCategories = async () => {
+  if (!db) return [];
   const snap = await getDocs(collection(db, 'categories'));
   return snap.docs.map(docToObj);
 };
@@ -79,6 +89,7 @@ export const getCategories = async () => {
 // ─── PRODUCTS ────────────────────────────────────────────────────────────────
 
 export const getProducts = async ({ includeInactive = false } = {}) => {
+  if (!db) return [];
   let q = collection(db, 'products');
   if (!includeInactive) {
     q = query(q, where('active', '==', true));
@@ -88,6 +99,7 @@ export const getProducts = async ({ includeInactive = false } = {}) => {
 };
 
 export const getProductBySlug = async (slug) => {
+  if (!db) return null;
   const q = query(collection(db, 'products'), where('slug', '==', slug), limit(1));
   const snap = await getDocs(q);
   if (snap.empty) return null;
@@ -95,12 +107,14 @@ export const getProductBySlug = async (slug) => {
 };
 
 export const getProductById = async (id) => {
+  if (!db) return null;
   const snap = await getDoc(doc(db, 'products', id));
   if (!snap.exists()) return null;
   return normaliseDoc(docToObj(snap));
 };
 
 export const createProduct = async (data) => {
+  ensureFirestore();
   const ref = await addDoc(collection(db, 'products'), {
     ...data,
     created_at: serverTimestamp(),
@@ -111,6 +125,7 @@ export const createProduct = async (data) => {
 };
 
 export const updateProduct = async (id, data) => {
+  ensureFirestore();
   const ref = doc(db, 'products', id);
   await updateDoc(ref, { ...data, updated_at: serverTimestamp() });
   const snap = await getDoc(ref);
@@ -118,6 +133,7 @@ export const updateProduct = async (id, data) => {
 };
 
 export const deleteProduct = async (id) => {
+  ensureFirestore();
   await deleteDoc(doc(db, 'products', id));
   return { id };
 };
@@ -125,6 +141,7 @@ export const deleteProduct = async (id) => {
 // ─── ORDERS ──────────────────────────────────────────────────────────────────
 
 export const createOrder = async (data) => {
+  ensureFirestore();
   const ref = await addDoc(collection(db, 'orders'), {
     ...data,
     created_at: serverTimestamp(),
@@ -135,12 +152,14 @@ export const createOrder = async (data) => {
 };
 
 export const getOrders = async () => {
+  if (!db) return [];
   const q = query(collection(db, 'orders'), orderBy('created_at', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(d => normaliseDoc(docToObj(d)));
 };
 
 export const getUserOrders = async (userId) => {
+  if (!db) return [];
   const q = query(
     collection(db, 'orders'),
     where('user_id', '==', userId),
@@ -151,6 +170,7 @@ export const getUserOrders = async (userId) => {
 };
 
 export const updateOrder = async (id, data) => {
+  ensureFirestore();
   const ref = doc(db, 'orders', id);
   await updateDoc(ref, { ...data, updated_at: serverTimestamp() });
   const snap = await getDoc(ref);
@@ -160,6 +180,7 @@ export const updateOrder = async (id, data) => {
 // ─── BLOGS ───────────────────────────────────────────────────────────────────
 
 export const getBlogs = async ({ includeDrafts = false } = {}) => {
+  if (!db) return [];
   let q = collection(db, 'blogs');
   if (!includeDrafts) {
     q = query(q, where('published', '==', true), orderBy('created_at', 'desc'));
@@ -171,6 +192,7 @@ export const getBlogs = async ({ includeDrafts = false } = {}) => {
 };
 
 export const getBlogBySlug = async (slug) => {
+  if (!db) return null;
   const q = query(collection(db, 'blogs'), where('slug', '==', slug), limit(1));
   const snap = await getDocs(q);
   if (snap.empty) return null;
@@ -178,6 +200,7 @@ export const getBlogBySlug = async (slug) => {
 };
 
 export const createBlog = async (data) => {
+  ensureFirestore();
   const ref = await addDoc(collection(db, 'blogs'), {
     ...data,
     created_at: serverTimestamp(),
@@ -188,6 +211,7 @@ export const createBlog = async (data) => {
 };
 
 export const updateBlog = async (id, data) => {
+  ensureFirestore();
   const ref = doc(db, 'blogs', id);
   await updateDoc(ref, { ...data, updated_at: serverTimestamp() });
   const snap = await getDoc(ref);
@@ -195,6 +219,7 @@ export const updateBlog = async (id, data) => {
 };
 
 export const deleteBlog = async (id) => {
+  ensureFirestore();
   await deleteDoc(doc(db, 'blogs', id));
   return { id };
 };
@@ -202,11 +227,13 @@ export const deleteBlog = async (id) => {
 // ─── COUPONS ─────────────────────────────────────────────────────────────────
 
 export const getCoupons = async () => {
+  if (!db) return [];
   const snap = await getDocs(collection(db, 'coupons'));
   return snap.docs.map(d => normaliseDoc(docToObj(d)));
 };
 
 export const getCouponByCode = async (code) => {
+  if (!db) return null;
   const q = query(
     collection(db, 'coupons'),
     where('code', '==', code.toUpperCase()),
@@ -218,6 +245,7 @@ export const getCouponByCode = async (code) => {
 };
 
 export const getActiveCoupons = async () => {
+  if (!db) return [];
   const q = query(collection(db, 'coupons'), where('active', '==', true));
   const snap = await getDocs(q);
   const now = new Date();
@@ -267,6 +295,7 @@ export const validateCoupon = async (code, orderAmount) => {
 };
 
 export const createCoupon = async (data) => {
+  ensureFirestore();
   const ref = await addDoc(collection(db, 'coupons'), {
     ...data,
     code: data.code.toUpperCase(),
@@ -279,6 +308,7 @@ export const createCoupon = async (data) => {
 };
 
 export const updateCoupon = async (id, data) => {
+  ensureFirestore();
   const ref = doc(db, 'coupons', id);
   const clean = Object.fromEntries(
     Object.entries(data).filter(([, v]) => v !== undefined)
@@ -289,6 +319,7 @@ export const updateCoupon = async (id, data) => {
 };
 
 export const deleteCoupon = async (id) => {
+  ensureFirestore();
   await deleteDoc(doc(db, 'coupons', id));
   return { id };
 };
@@ -304,12 +335,14 @@ export const incrementCouponUse = async (code) => {
 // ─── EMAIL LOGS ──────────────────────────────────────────────────────────────
 
 export const getEmailLogs = async () => {
+  if (!db) return [];
   const q = query(collection(db, 'emailLogs'), orderBy('created_at', 'desc'));
   const snap = await getDocs(q);
   return snap.docs.map(d => normaliseDoc(docToObj(d)));
 };
 
 export const createEmailLog = async (data) => {
+  ensureFirestore();
   const ref = await addDoc(collection(db, 'emailLogs'), {
     ...data,
     created_at: serverTimestamp(),
