@@ -4,7 +4,7 @@ import { BadgeCheck, Headphones, ShieldCheck, ShoppingBag, Truck } from 'lucide-
 import { useCart } from '../context/CartContext';
 import { getProducts } from '../lib/firestoreService';
 
-const heroImage = 'https://i.ibb.co/fsc5rkk/hero.png';
+const heroImage = 'https://i.ibb.co/x8XLvzSZ/upscalemedia-transformed.png';
 
 const categories = [
   {
