@@ -669,7 +669,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 .site-brand-logo {
-  width: clamp(190px, 22vw, 270px);
+  width: clamp(230px, 26vw, 320px);
   height: auto;
   display: block;
 }
