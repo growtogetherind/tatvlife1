@@ -35,7 +35,6 @@ const Footer = () => (
           <Link to="/" className="stitch-footer-logo-link" aria-label="The WellMan Co home">
             <BrandLogo className="stitch-footer-logo" />
           </Link>
-          <p>Clinical authority meets lifestyle aspiration. Premium formulations engineered for the modern man.</p>
         </div>
 
         {footerGroups.map(group => (
