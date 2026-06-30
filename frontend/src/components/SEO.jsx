@@ -66,6 +66,20 @@ const pageMeta = (pathname) => {
         keywords: 'about the wellman co, wellness brand, premium care',
         type: 'website',
       };
+    case '/contact':
+      return {
+        title: `${appName} | Contact`,
+        description: 'Contact The WellMan Co support team for product questions, order support, billing, and discreet delivery help.',
+        keywords: 'contact the wellman co, customer support, wellness product support',
+        type: 'website',
+      };
+    case '/support-request':
+      return {
+        title: `${appName} | Support Request`,
+        description: 'Submit a support request for shipping, product questions, payment issues, or order assistance.',
+        keywords: 'support request, shipping help, product complaint, payment support',
+        type: 'website',
+      };
     case '/privacy':
       return {
         title: `${appName} | Privacy Policy`,

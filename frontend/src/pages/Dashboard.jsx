@@ -34,6 +34,15 @@ const StatusPill = ({ status }) => {
   return <span className={`status-pill ${cls}`}>{label}</span>;
 };
 
+const formatOrderDate = value => {
+  if (!value) return 'Pending';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Pending';
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatCurrency = value => `$${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+
 const Dashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -44,14 +53,17 @@ const Dashboard = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  useEffect(() => { if (!user) navigate('/login?redirect=dashboard'); }, [user]);
+  useEffect(() => { if (!user) navigate('/login?redirect=dashboard'); }, [user, navigate]);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const orders = await getUserOrders(user.id);
       setOrders(orders);
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      setError(err.message || 'Unable to load your orders right now.');
+    }
     finally { setLoading(false); }
   };
 
@@ -140,8 +152,8 @@ const Dashboard = () => {
                   <div style={{ display: 'flex', gap: '28px', flexWrap: 'wrap' }}>
                     {[
                       { label: 'Order ID', value: `#${order.id.slice(0, 12)}...` },
-                      { label: 'Date', value: new Date(order.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
-                      { label: 'Amount', value: `$${order.total_amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bold: true },
+                      { label: 'Date', value: formatOrderDate(order.created_at) },
+                      { label: 'Amount', value: formatCurrency(order.total_amount), bold: true },
                     ].map(col => (
                       <div key={col.label}>
                         <span style={{ fontSize: '11px', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '2px' }}>{col.label}</span>
@@ -167,10 +179,10 @@ const Dashboard = () => {
                           <Package size={13} /> Order Items
                         </h4>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '24px' }}>
-                          {order.items.map((item, i) => (
+                          {(order.items || []).map((item, i) => (
                             <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px', padding: '10px 14px', background: 'var(--white)', borderRadius: '10px', border: '1px solid var(--beige-100)' }}>
                               <span style={{ color: 'var(--text-dark)' }}><strong>{item.quantity}×</strong> {item.name}</span>
-                              <strong style={{ color: 'var(--green-900)' }}>${(item.price * item.quantity).toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong>
+                              <strong style={{ color: 'var(--green-900)' }}>{formatCurrency(Number(item.price || 0) * Number(item.quantity || 0))}</strong>
                             </div>
                           ))}
                         </div>
@@ -179,10 +191,10 @@ const Dashboard = () => {
                           <MapPin size={13} /> Delivery Address
                         </h4>
                         <div style={{ fontSize: '13.5px', color: 'var(--text-dark)', lineHeight: 1.6, padding: '14px 18px', background: 'var(--white)', borderRadius: '10px', border: '1px solid var(--beige-100)' }}>
-                          <strong>{order.shipping_address.fullName}</strong><br />
-                          {order.shipping_address.addressLine}<br />
-                          {order.shipping_address.city}, {order.shipping_address.state} — {order.shipping_address.postalCode}<br />
-                          {order.shipping_address.country}
+                          <strong>{order.shipping_address?.fullName || 'Customer'}</strong><br />
+                          {order.shipping_address?.addressLine || 'Address pending'}<br />
+                          {order.shipping_address?.city || ''}{order.shipping_address?.city && order.shipping_address?.state ? ', ' : ''}{order.shipping_address?.state || ''} {order.shipping_address?.postalCode || ''}<br />
+                          {order.shipping_address?.country || ''}
                         </div>
 
                         <h4 style={{ fontSize: '11.5px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', marginTop: '20px', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>

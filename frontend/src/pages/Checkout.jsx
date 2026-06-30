@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, Phone, User, Globe, CheckCircle, CreditCard, Bitcoin, Landmark, Wallet, Clock } from 'lucide-react';
-import { validateCoupon, createOrder, incrementCouponUse } from '../lib/firestoreService';
+import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, CheckCircle, Clock } from 'lucide-react';
+import { validateCoupon, createOrder, incrementCouponUse, getCheckoutSettings, defaultCheckoutSettings } from '../lib/firestoreService';
 
 const Checkout = () => {
   const { cartItems, cartSubtotal, requiresPrescription, clearCart } = useCart();
@@ -25,6 +25,8 @@ const Checkout = () => {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [hasAcceptedAgreement, setHasAcceptedAgreement] = useState(false);
+  const [checkoutSettings, setCheckoutSettings] = useState(defaultCheckoutSettings);
 
   const [couponCodeInput, setCouponCodeInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
@@ -32,7 +34,25 @@ const Checkout = () => {
   const [couponSuccess, setCouponSuccess] = useState('');
   const [validatingCoupon, setValidatingCoupon] = useState(false);
 
-  const finalTotal = Math.max(0.01, cartSubtotal - (appliedCoupon?.discount_amount || 0));
+  const discountAmount = appliedCoupon?.discount_amount || 0;
+  const freeDeliveryThreshold = Number(checkoutSettings.free_delivery_threshold) || 100;
+  const configuredDeliveryFee = Number(checkoutSettings.delivery_fee) || 0;
+  const deliveryFee = cartSubtotal >= freeDeliveryThreshold || cartSubtotal === 0 ? 0 : configuredDeliveryFee;
+  const taxableAmount = Math.max(0, cartSubtotal - discountAmount);
+  const taxRatePercent = checkoutSettings.tax_enabled ? Number(checkoutSettings.tax_rate_percent) || 0 : 0;
+  const taxAmount = Math.round((taxableAmount * taxRatePercent / 100) * 100) / 100;
+  const finalTotal = Math.max(0.01, taxableAmount + deliveryFee + taxAmount);
+
+  useEffect(() => {
+    const loadCheckoutSettings = async () => {
+      try {
+        setCheckoutSettings(await getCheckoutSettings());
+      } catch (err) {
+        console.error('Failed to load checkout settings:', err);
+      }
+    };
+    loadCheckoutSettings();
+  }, []);
 
   const handleApplyCoupon = async (e) => {
     e.preventDefault();
@@ -93,6 +113,10 @@ const Checkout = () => {
       setError('Please enter a valid postal code.');
       return;
     }
+    if (!hasAcceptedAgreement) {
+      setError('Please read and agree to the Terms of Service and Health Disclaimer before proceeding to payment.');
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -101,6 +125,11 @@ const Checkout = () => {
         user_email: user.email,
         items: cartItems.map(i => ({ product_id: i.product.id, name: i.product.name, price: i.product.price, quantity: i.quantity })),
         total_amount: finalTotal,
+        subtotal_amount: cartSubtotal,
+        delivery_fee: deliveryFee,
+        tax_amount: taxAmount,
+        tax_rate_percent: taxRatePercent,
+        free_delivery_threshold: freeDeliveryThreshold,
         shipping_address: address,
         prescription_name: prescription.name || null,
         prescription_data: prescription.base64 || null,
@@ -110,7 +139,7 @@ const Checkout = () => {
         transaction_hash: '',
         payment_method: paymentGateway,
         coupon_code: appliedCoupon?.code || null,
-        discount_amount: appliedCoupon ? Number(cartSubtotal - finalTotal).toFixed(2) : 0,
+        discount_amount: appliedCoupon ? Number(discountAmount).toFixed(2) : 0,
       });
       if (appliedCoupon?.code) {
         await incrementCouponUse(appliedCoupon.code);
@@ -429,19 +458,42 @@ const Checkout = () => {
                   </div>
                 )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Shipping</span>
-                  <span style={{ color: 'var(--green-600)', fontWeight: 600 }}>Free Express</span>
+                  <span style={{ color: 'var(--text-muted)' }}>Delivery Fee</span>
+                  <span style={{ color: deliveryFee === 0 ? 'var(--green-600)' : 'var(--text-dark)', fontWeight: 600 }}>
+                    {deliveryFee === 0 ? 'Free' : `$${deliveryFee.toLocaleString('en-US', { minimumFractionDigits: 2 })}`}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13.5px' }}>
+                  <span style={{ color: 'var(--text-muted)' }}>Tax</span>
+                  <span style={{ color: 'var(--text-dark)', fontWeight: 600 }}>
+                    ${taxAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                 <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--green-900)' }}>Total</span>
                 <strong style={{ fontSize: '24px', fontWeight: 800, color: 'var(--green-900)', letterSpacing: '-0.03em' }}>
-                  ${Math.max(0.01, cartSubtotal - (appliedCoupon?.discount_amount || 0)).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                  ${finalTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}
                 </strong>
               </div>
 
-              <button type="submit" disabled={submitting} className="btn-primary" style={{ width: '100%', borderRadius: '12px', padding: '15px', gap: '8px' }}>
+              <label className="checkout-agreement">
+                <input
+                  type="checkbox"
+                  checked={hasAcceptedAgreement}
+                  onChange={event => setHasAcceptedAgreement(event.target.checked)}
+                  required
+                />
+                <span>
+                  I have read and agree to the{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                  {' '}and{' '}
+                  <a href="/disclaimer" target="_blank" rel="noopener noreferrer">Health Disclaimer</a>.
+                </span>
+              </label>
+
+              <button type="submit" disabled={submitting || !hasAcceptedAgreement} className="btn-primary" style={{ width: '100%', borderRadius: '12px', padding: '15px', gap: '8px' }}>
                 <Lock size={15} />
                 <span>{submitting ? 'Processing...' : 'Place Secure Order'}</span>
                 <ArrowRight size={15} />

@@ -160,13 +160,21 @@ export const getOrders = async () => {
 
 export const getUserOrders = async (userId) => {
   if (!db) return [];
-  const q = query(
-    collection(db, 'orders'),
-    where('user_id', '==', userId),
-    orderBy('created_at', 'desc')
-  );
-  const snap = await getDocs(q);
-  return snap.docs.map(d => normaliseDoc(docToObj(d)));
+  try {
+    const q = query(
+      collection(db, 'orders'),
+      where('user_id', '==', userId),
+      orderBy('created_at', 'desc')
+    );
+    const snap = await getDocs(q);
+    return snap.docs.map(d => normaliseDoc(docToObj(d)));
+  } catch (err) {
+    const q = query(collection(db, 'orders'), where('user_id', '==', userId));
+    const snap = await getDocs(q);
+    return snap.docs
+      .map(d => normaliseDoc(docToObj(d)))
+      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  }
 };
 
 export const updateOrder = async (id, data) => {
@@ -175,6 +183,38 @@ export const updateOrder = async (id, data) => {
   await updateDoc(ref, { ...data, updated_at: serverTimestamp() });
   const snap = await getDoc(ref);
   return normaliseDoc(docToObj(snap));
+};
+
+// ─── CHECKOUT SETTINGS ───────────────────────────────────────────────────────
+
+export const defaultCheckoutSettings = {
+  tax_enabled: false,
+  tax_rate_percent: 0,
+  delivery_fee: 9.99,
+  free_delivery_threshold: 100,
+};
+
+export const getCheckoutSettings = async () => {
+  if (!db) return defaultCheckoutSettings;
+  const snap = await getDoc(doc(db, 'settings', 'checkout'));
+  if (!snap.exists()) return defaultCheckoutSettings;
+  return {
+    ...defaultCheckoutSettings,
+    ...snap.data(),
+  };
+};
+
+export const updateCheckoutSettings = async (data) => {
+  ensureFirestore();
+  const payload = {
+    tax_enabled: Boolean(data.tax_enabled),
+    tax_rate_percent: Number(data.tax_rate_percent) || 0,
+    delivery_fee: Number(data.delivery_fee) || 0,
+    free_delivery_threshold: Number(data.free_delivery_threshold) || 0,
+    updated_at: serverTimestamp(),
+  };
+  await setDoc(doc(db, 'settings', 'checkout'), payload, { merge: true });
+  return { id: 'checkout', ...payload };
 };
 
 // ─── BLOGS ───────────────────────────────────────────────────────────────────

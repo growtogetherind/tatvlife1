@@ -14,7 +14,8 @@ import {
   getOrders, updateOrder,
   getBlogs, createBlog, updateBlog, deleteBlog,
   getCoupons, createCoupon, updateCoupon, deleteCoupon,
-  getEmailLogs, createEmailLog
+  getEmailLogs, createEmailLog,
+  getCheckoutSettings, updateCheckoutSettings, defaultCheckoutSettings,
 } from '../lib/firestoreService';
 
 const StatusPill = ({ status }) => {
@@ -65,6 +66,7 @@ const AdminDashboard = () => {
   const [productSaving, setProductSaving] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState('');
   const [emailConfigSaving, setEmailConfigSaving] = useState(false);
+  const [checkoutSettingsSaving, setCheckoutSettingsSaving] = useState(false);
   const [blogSaving, setBlogSaving] = useState(false);
   const [deletingBlogId, setDeletingBlogId] = useState('');
   const [couponSaving, setCouponSaving] = useState(false);
@@ -161,7 +163,7 @@ const AdminDashboard = () => {
 
   const blankProductForm = {
     name: '', slug: '', description: '', manufacturer: '',
-    price: '', stock: '', dosage: '', side_effects: '',
+    price: '', stock: '', product_information: '', packaging: '',
     category_id: 'sexual-health', featured: false, active: true, image_url: '',
   };
 
@@ -187,6 +189,7 @@ const AdminDashboard = () => {
     replyTo: '',
     configured: false,
   });
+  const [checkoutSettings, setCheckoutSettings] = useState(defaultCheckoutSettings);
 
   useEffect(() => {
     if (loading) return;
@@ -212,6 +215,7 @@ const AdminDashboard = () => {
       setOrders(oRes);
       setBlogs(bRes);
       setCoupons(coupRes);
+      setCheckoutSettings(await getCheckoutSettings());
     } catch (err) { console.error(err); }
     finally { setPageLoading(false); }
   };
@@ -265,8 +269,8 @@ const AdminDashboard = () => {
         manufacturer: productForm.manufacturer,
         price: Number(productForm.price),
         stock: Number(productForm.stock),
-        dosage: productForm.dosage,
-        side_effects: productForm.side_effects,
+        product_information: productForm.product_information,
+        packaging: productForm.packaging,
         category_id: productForm.category_id,
         featured: Boolean(productForm.featured),
         active: Boolean(productForm.active),
@@ -305,8 +309,8 @@ const AdminDashboard = () => {
       manufacturer: product.manufacturer || '',
       price: String(product.price ?? ''),
       stock: String(product.stock ?? ''),
-      dosage: product.dosage || '',
-      side_effects: product.side_effects || '',
+      product_information: product.product_information || '',
+      packaging: product.packaging || '',
       category_id: product.category_id || categories[0]?.id || 'sexual-health',
       featured: !!product.featured,
       active: product.active !== false,
@@ -468,6 +472,32 @@ const AdminDashboard = () => {
       setError(err.message || 'Error removing email settings.');
     } finally {
       setEmailConfigSaving(false);
+    }
+  };
+
+  const handleCheckoutSettingsChange = e => {
+    const { name, value, type, checked } = e.target;
+    setCheckoutSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+  };
+
+  const handleSaveCheckoutSettings = async e => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setCheckoutSettingsSaving(true);
+    try {
+      const saved = await updateCheckoutSettings(checkoutSettings);
+      setCheckoutSettings({
+        tax_enabled: Boolean(saved.tax_enabled),
+        tax_rate_percent: Number(saved.tax_rate_percent) || 0,
+        delivery_fee: Number(saved.delivery_fee) || 0,
+        free_delivery_threshold: Number(saved.free_delivery_threshold) || 0,
+      });
+      setSuccess('Checkout settings updated successfully.');
+    } catch (err) {
+      setError(err.message || 'Error saving checkout settings.');
+    } finally {
+      setCheckoutSettingsSaving(false);
     }
   };
 
@@ -697,6 +727,7 @@ const AdminDashboard = () => {
     { id: 'blogs', label: 'Blogs', icon: FileText },
     { id: 'blog-editor', label: 'Blog Editor', icon: PlusCircle },
     { id: 'coupons', label: 'Offers & Coupons', icon: Tag },
+    { id: 'checkout-settings', label: 'Checkout Settings', icon: Settings },
     { id: 'email-logs', label: 'Email Logs', icon: Mail },
   ];
 
@@ -1006,6 +1037,32 @@ const AdminDashboard = () => {
                 <label className="label">Description / Indication</label>
                 <textarea className="input" name="description" rows="3" style={{ resize: 'vertical' }} value={productForm.description} onChange={handleProductChange} placeholder="Describe the therapy usage and indication..." />
               </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label className="label">Product Information</label>
+                  <textarea
+                    className="input"
+                    name="product_information"
+                    rows="5"
+                    style={{ resize: 'vertical', lineHeight: 1.6 }}
+                    value={productForm.product_information}
+                    onChange={handleProductChange}
+                    placeholder="Add product benefits, usage notes, ingredients, or safety information..."
+                  />
+                </div>
+                <div>
+                  <label className="label">Packaging</label>
+                  <textarea
+                    className="input"
+                    name="packaging"
+                    rows="5"
+                    style={{ resize: 'vertical', lineHeight: 1.6 }}
+                    value={productForm.packaging}
+                    onChange={handleProductChange}
+                    placeholder="Add package format, quantity, storage, or dispatch notes..."
+                  />
+                </div>
+              </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
                 <div>
                   <label className="label">Manufacturer</label>
@@ -1018,16 +1075,6 @@ const AdminDashboard = () => {
                 <div>
                   <label className="label">Stock Level</label>
                   <input type="number" className="input" name="stock" value={productForm.stock} onChange={handleProductChange} placeholder="50" />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label className="label">Dosage Instructions</label>
-                  <input type="text" className="input" name="dosage" value={productForm.dosage} onChange={handleProductChange} placeholder="e.g. Take once daily at bedtime" />
-                </div>
-                <div>
-                  <label className="label">Common Side Effects</label>
-                  <input type="text" className="input" name="side_effects" value={productForm.side_effects} onChange={handleProductChange} placeholder="e.g. Nausea, headache, fatigue" />
                 </div>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1.5fr 1.5fr auto', gap: '16px', alignItems: 'end' }}>
@@ -1173,6 +1220,81 @@ const AdminDashboard = () => {
                   {blogSaving ? 'Saving...' : editingBlogId ? 'Save Changes' : 'Publish Blog'}
                 </button>
               </div>
+            </form>
+          </div>
+        )}
+
+        {/* Checkout Settings Tab */}
+        {activeTab === 'checkout-settings' && (
+          <div className="card-elevated" style={{ maxWidth: '760px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '18px' }}>
+              <Settings size={18} color="var(--green-700)" />
+              <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Checkout Pricing Settings</h2>
+            </div>
+            <p style={{ color: 'var(--text-muted)', fontSize: '13.5px', lineHeight: 1.6, marginTop: 0, marginBottom: '22px' }}>
+              Control tax and delivery fees used during checkout. Delivery becomes free automatically when the cart subtotal reaches the configured threshold.
+            </p>
+
+            <form onSubmit={handleSaveCheckoutSettings} style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', fontSize: '14px', fontWeight: 700, color: 'var(--green-900)' }}>
+                <input
+                  type="checkbox"
+                  name="tax_enabled"
+                  checked={Boolean(checkoutSettings.tax_enabled)}
+                  onChange={handleCheckoutSettingsChange}
+                  style={{ accentColor: 'var(--green-800)', width: '17px', height: '17px' }}
+                />
+                Enable tax at checkout
+              </label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '16px' }}>
+                <div>
+                  <label className="label">Tax Rate (%)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    name="tax_rate_percent"
+                    min="0"
+                    step="0.01"
+                    value={checkoutSettings.tax_rate_percent}
+                    onChange={handleCheckoutSettingsChange}
+                    disabled={!checkoutSettings.tax_enabled}
+                  />
+                </div>
+                <div>
+                  <label className="label">Delivery Fee ($)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    name="delivery_fee"
+                    min="0"
+                    step="0.01"
+                    value={checkoutSettings.delivery_fee}
+                    onChange={handleCheckoutSettingsChange}
+                  />
+                </div>
+                <div>
+                  <label className="label">Free Delivery Over ($)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    name="free_delivery_threshold"
+                    min="0"
+                    step="0.01"
+                    value={checkoutSettings.free_delivery_threshold}
+                    onChange={handleCheckoutSettingsChange}
+                  />
+                </div>
+              </div>
+
+              <div style={{ padding: '14px 16px', border: '1px solid var(--green-100)', borderRadius: '12px', background: 'var(--green-50)', color: 'var(--text-muted)', fontSize: '13px', lineHeight: 1.6 }}>
+                Current rule: customers receive free delivery when their subtotal is at least ${Number(checkoutSettings.free_delivery_threshold || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}.
+              </div>
+
+              <button type="submit" className="btn-primary" disabled={checkoutSettingsSaving} style={{ width: 'fit-content', borderRadius: '12px', gap: '8px' }}>
+                <Save size={15} />
+                {checkoutSettingsSaving ? 'Saving...' : 'Save Checkout Settings'}
+              </button>
             </form>
           </div>
         )}

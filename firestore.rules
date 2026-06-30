@@ -56,9 +56,10 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    // Settings Collection (e.g. SMTP config settings/email)
+    // Settings Collection (public checkout settings, admin-only private settings)
     match /settings/{settingId} {
-      allow read, write: if isAdmin();
+      allow read: if settingId == 'checkout' || isAdmin();
+      allow write: if isAdmin();
     }
   }
 }

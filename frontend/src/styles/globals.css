@@ -552,7 +552,7 @@ img { display: block; max-width: 100%; height: auto; }
   display: flex;
   align-items: center;
   gap: 48px;
-  min-height: 88px;
+  min-height: 104px;
 }
 
 .site-nav-links,
@@ -589,7 +589,7 @@ img { display: block; max-width: 100%; height: auto; }
   background: transparent;
   color: var(--text-muted);
   padding: 0;
-  font-size: 12px;
+  font-size: 13.5px;
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
@@ -669,7 +669,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 .site-brand-logo {
-  width: clamp(230px, 26vw, 320px);
+  width: clamp(270px, 28vw, 360px);
   height: auto;
   display: block;
 }
@@ -862,7 +862,7 @@ img { display: block; max-width: 100%; height: auto; }
 .stitch-hero {
   position: relative;
   width: 100%;
-  min-height: min(800px, calc(100vh - 88px));
+  min-height: min(800px, calc(100vh - 104px));
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -914,11 +914,29 @@ img { display: block; max-width: 100%; height: auto; }
 
 .stitch-hero-content p {
   max-width: 440px;
-  margin: 0 0 40px auto;
+  margin: 0 0 32px auto;
   color: var(--text-muted);
   font-size: 18px;
   font-weight: 500;
   line-height: 1.55;
+}
+
+.stitch-hero-actions {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.stitch-hero-note {
+  max-width: none !important;
+  margin: 0 !important;
+  color: var(--green-900) !important;
+  font-size: 13px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0.08em;
+  line-height: 1.3 !important;
+  text-transform: uppercase;
 }
 
 .stitch-primary-button {
@@ -997,7 +1015,7 @@ img { display: block; max-width: 100%; height: auto; }
 }
 
 .stitch-category-section {
-  padding-top: 64px;
+  padding-top: 72px;
 }
 
 .stitch-section-heading {
@@ -1128,76 +1146,6 @@ img { display: block; max-width: 100%; height: auto; }
   color: var(--white);
 }
 
-.stitch-testimonial-band {
-  background: #030403;
-  color: var(--white);
-  padding: clamp(72px, 9vw, 120px) 0;
-}
-
-.stitch-testimonial-content {
-  max-width: 680px;
-}
-
-.stitch-testimonial-mark {
-  color: #d6a85f;
-  font-family: Georgia, serif;
-  font-size: 56px;
-  font-weight: 700;
-  line-height: 0.8;
-  margin-bottom: 22px;
-}
-
-.stitch-testimonial-content blockquote {
-  margin: 0;
-  max-width: 640px;
-  color: var(--white);
-  font-size: clamp(32px, 4.3vw, 48px);
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.16;
-}
-
-.stitch-testimonial-author {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 44px;
-}
-
-.stitch-testimonial-avatar {
-  width: 44px;
-  height: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  border-radius: 9999px;
-  background: #d6a85f;
-  color: #030403;
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.stitch-testimonial-author strong,
-.stitch-testimonial-author span {
-  display: block;
-}
-
-.stitch-testimonial-author strong {
-  color: var(--white);
-  font-size: 13px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.stitch-testimonial-author span {
-  margin-top: 4px;
-  color: rgba(255,255,255,0.58);
-  font-size: 13px;
-  line-height: 1.2;
-}
-
 .stitch-category-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1280,6 +1228,366 @@ img { display: block; max-width: 100%; height: auto; }
   color: var(--green-900);
 }
 
+.stitch-feature-icons {
+  padding: 72px 0 88px;
+  background: var(--beige-100);
+  border-top: 1px solid rgba(194,199,205,0.28);
+}
+
+.stitch-feature-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.stitch-feature-card {
+  min-height: 220px;
+  padding: 28px;
+  background: var(--white);
+  border: 1px solid rgba(194,199,205,0.34);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,36,59,0.04);
+  transition: transform 0.24s ease, box-shadow 0.24s ease, border-color 0.24s ease;
+}
+
+.stitch-feature-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--green-200);
+  box-shadow: 0 14px 34px rgba(0,36,59,0.08);
+}
+
+.stitch-feature-icon {
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 22px;
+  border-radius: 9999px;
+  background: var(--green-50);
+  color: var(--green-900);
+  border: 1px solid var(--green-200);
+}
+
+.stitch-feature-card h3 {
+  margin: 0 0 10px;
+  color: var(--green-900);
+  font-size: 17px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.stitch-feature-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.checkout-agreement {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 18px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.checkout-agreement input {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  flex: 0 0 auto;
+  accent-color: var(--green-800);
+}
+
+.checkout-agreement a {
+  color: var(--green-800);
+  font-weight: 700;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+/* ── Contact & Support ── */
+.contact-page,
+.support-page {
+  background: var(--cream);
+}
+
+.contact-hero,
+.support-hero {
+  padding: 80px 0;
+  background: var(--green-900);
+  color: var(--white);
+}
+
+.contact-hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 48px;
+  align-items: end;
+}
+
+.contact-kicker {
+  display: inline-flex;
+  margin-bottom: 14px;
+  color: var(--green-200);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.contact-hero h1,
+.support-hero h1 {
+  max-width: 780px;
+  margin: 0 0 18px;
+  font-size: clamp(38px, 5vw, 58px);
+  font-weight: 500;
+  line-height: 1.08;
+}
+
+.contact-hero p,
+.support-hero p {
+  max-width: 640px;
+  margin: 0;
+  color: rgba(255,255,255,0.78);
+  font-size: 17px;
+  line-height: 1.65;
+}
+
+.contact-info-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 28px;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.06);
+}
+
+.contact-info-card div,
+.contact-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  color: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.contact-info-card a,
+.contact-detail a {
+  color: inherit;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.contact-main,
+.support-main,
+.contact-faq {
+  padding: 80px 0;
+}
+
+.contact-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.9fr);
+  gap: 32px;
+  align-items: start;
+}
+
+.contact-form,
+.support-form,
+.contact-business-card {
+  border-radius: 8px;
+}
+
+.contact-form,
+.support-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-form h2,
+.contact-business-card h2 {
+  margin: 0 0 8px;
+  color: var(--green-900);
+  font-size: 28px;
+  font-weight: 500;
+}
+
+.contact-form p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.form-grid-full {
+  grid-column: 1 / -1;
+}
+
+.contact-textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+.contact-side {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.contact-business-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.contact-detail {
+  color: var(--text-muted);
+}
+
+.contact-detail svg {
+  color: var(--green-700);
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.contact-map-placeholder {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: 1px dashed var(--beige-400);
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(26,58,82,0.06) 1px, transparent 1px),
+    linear-gradient(rgba(26,58,82,0.06) 1px, transparent 1px),
+    var(--white);
+  background-size: 28px 28px;
+  color: var(--green-900);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.contact-faq {
+  padding-top: 0;
+}
+
+.contact-faq-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.contact-faq-card {
+  padding: 24px;
+  border: 1px solid var(--beige-200);
+  border-radius: 8px;
+  background: var(--white);
+}
+
+.contact-faq-card svg {
+  color: var(--green-700);
+  margin-bottom: 16px;
+}
+
+.contact-faq-card h3 {
+  margin: 0 0 10px;
+  color: var(--green-900);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.contact-faq-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.support-hero-inner {
+  max-width: 780px;
+  text-align: center;
+}
+
+.support-hero-icon {
+  width: 56px;
+  height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 9999px;
+  background: rgba(255,255,255,0.08);
+  color: var(--green-200);
+}
+
+.support-hero p {
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.support-form {
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.support-upload {
+  position: relative;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px dashed var(--beige-300);
+  border-radius: 8px;
+  background: var(--beige-100);
+  color: var(--green-900);
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.support-upload:hover {
+  border-color: var(--green-500);
+  background: var(--green-50);
+}
+
+.support-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.support-upload span {
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.support-upload small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .stitch-footer {
   width: 100%;
   margin-top: 48px;
@@ -1297,7 +1605,7 @@ img { display: block; max-width: 100%; height: auto; }
 
 .stitch-footer-logo-link {
   display: inline-flex;
-  width: min(100%, 240px);
+  width: min(100%, 280px);
   margin-bottom: 24px;
   text-decoration: none;
 }
@@ -1591,7 +1899,8 @@ img { display: block; max-width: 100%; height: auto; }
     width: 176px;
   }
   .stitch-products-grid,
-  .stitch-category-grid {
+  .stitch-category-grid,
+  .stitch-feature-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .stitch-footer-grid {
@@ -1617,7 +1926,7 @@ img { display: block; max-width: 100%; height: auto; }
   .container { padding: 0 20px; }
   .hidden-mobile { display: none !important; }
   .site-nav-shell {
-    min-height: 68px;
+    min-height: 76px;
     gap: 12px;
   }
   .site-menu-button {
@@ -1627,7 +1936,7 @@ img { display: block; max-width: 100%; height: auto; }
     justify-content: center;
   }
   .site-brand-logo {
-    width: 176px;
+    width: 190px;
   }
   .site-brand-mark {
     width: 32px;
@@ -1687,6 +1996,9 @@ img { display: block; max-width: 100%; height: auto; }
     margin: 0;
     text-align: center;
   }
+  .stitch-hero-actions {
+    align-items: center;
+  }
   .stitch-hero-content p {
     margin-right: auto;
     margin-left: auto;
@@ -1725,6 +2037,24 @@ img { display: block; max-width: 100%; height: auto; }
   .stitch-category-grid {
     grid-template-columns: 1fr;
   }
+  .stitch-feature-grid,
+  .contact-hero-grid,
+  .contact-main-grid,
+  .contact-faq-grid {
+    grid-template-columns: 1fr;
+  }
+  .contact-hero,
+  .support-hero {
+    padding: 64px 0;
+  }
+  .contact-main,
+  .support-main,
+  .contact-faq {
+    padding: 64px 0;
+  }
+  .contact-faq {
+    padding-top: 0;
+  }
   .stitch-product-image {
     height: 190px;
   }
@@ -1742,12 +2072,6 @@ img { display: block; max-width: 100%; height: auto; }
     min-height: 40px;
     font-size: 11px;
     letter-spacing: 0.08em;
-  }
-  .stitch-testimonial-band {
-    padding: 64px 0;
-  }
-  .stitch-testimonial-content blockquote {
-    font-size: 32px;
   }
   .stitch-category-card {
     min-height: 460px;
@@ -1767,7 +2091,7 @@ img { display: block; max-width: 100%; height: auto; }
   .modal-box { padding: 24px; }
   .container { padding: 0 16px; }
   .site-brand-logo {
-    width: 150px;
+    width: 162px;
   }
   .auth-brand-logo {
     width: 190px;
@@ -1782,6 +2106,15 @@ img { display: block; max-width: 100%; height: auto; }
   .stitch-category-copy,
   .stitch-product-body {
     padding: 28px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .contact-info-card,
+  .contact-form,
+  .support-form,
+  .contact-business-card {
+    padding: 22px;
   }
   .stitch-products-grid {
     gap: 12px;
@@ -1802,9 +2135,6 @@ img { display: block; max-width: 100%; height: auto; }
   .stitch-product-body button {
     padding: 0 8px;
     font-size: 10px;
-  }
-  .stitch-testimonial-content blockquote {
-    font-size: 28px;
   }
 }
 

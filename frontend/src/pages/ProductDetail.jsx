@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Truck, ArrowLeft, Star, ShoppingBag, Plus, Minus, AlertTriangle, ClipboardList, Building2, PackageCheck } from 'lucide-react';
+import { BadgeCheck, Headphones, PackageCheck, Truck, ArrowLeft, Star, ShoppingBag, Plus, Minus, AlertTriangle, ClipboardList } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { getProductBySlug } from '../lib/firestoreService';
 
@@ -12,7 +12,7 @@ const ProductDetail = () => {
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
-  const [activeTab, setActiveTab] = useState('dosage');
+  const [activeTab, setActiveTab] = useState('product_information');
 
   useEffect(() => {
     const load = async () => {
@@ -46,9 +46,8 @@ const ProductDetail = () => {
 
   const img = product.image_url || `https://picsum.photos/seed/${product.slug}/500/500`;
   const tabs = [
-    { id: 'dosage', label: 'Dosage', icon: ClipboardList },
-    { id: 'side_effects', label: 'Side Effects', icon: AlertTriangle },
-    { id: 'manufacturer', label: 'Manufacturer', icon: Building2 },
+    { id: 'product_information', label: 'Product Information', icon: ClipboardList },
+    { id: 'packaging', label: 'Packaging', icon: PackageCheck },
   ];
 
   return (
@@ -103,10 +102,10 @@ const ProductDetail = () => {
             {/* Trust badges under image */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
               {[
-                { icon: ShieldCheck, label: 'Quality Assured', sub: '100% genuine sourced' },
-                { icon: Truck, label: 'Insured Delivery', sub: 'Fast & tracked shipping' },
-                { icon: PackageCheck, label: 'Batch Traceable', sub: 'Full transparency' },
-                { icon: Building2, label: product.manufacturer || 'Certified Partner', sub: 'Verified source' },
+                { icon: Truck, label: 'Free Delivery Over $100', sub: 'Automatic threshold savings' },
+                { icon: BadgeCheck, label: 'Clinically Proven Products', sub: 'Curated quality standards' },
+                { icon: PackageCheck, label: 'Discreet Billing & Shipping', sub: 'Plain, private handling' },
+                { icon: Headphones, label: 'Reliable Customer Support', sub: 'Responsive order help' },
               ].map(({ icon: Icon, label, sub }) => (
                 <div key={label} style={{
                   background: 'var(--white)', border: '1px solid var(--beige-200)',
@@ -132,7 +131,7 @@ const ProductDetail = () => {
               {product.categories && <span className="badge badge-green">{product.categories.name}</span>}
               {product.featured && <span className="badge badge-purple">Featured</span>}
               <span className="badge" style={{ background: 'var(--beige-100)', color: 'var(--text-muted)', border: '1px solid var(--beige-200)' }}>
-                {product.manufacturer}
+                {product.manufacturer || 'Verified Manufacturer'}
               </span>
             </div>
 
@@ -183,6 +182,15 @@ const ProductDetail = () => {
               {product.description}
             </p>
 
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', background: 'var(--white)', border: '1px solid var(--beige-200)', borderRadius: '12px', padding: '14px 18px', marginBottom: '24px' }}>
+              <span style={{ fontSize: '11px', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 700 }}>
+                Manufacturer
+              </span>
+              <strong style={{ color: 'var(--green-900)', fontSize: '13.5px', textAlign: 'right' }}>
+                {product.manufacturer || 'Verified Manufacturer'}
+              </strong>
+            </div>
+
             {/* Info Tabs */}
             <div style={{ marginBottom: '32px' }}>
               <div style={{ display: 'flex', gap: '0', background: 'var(--beige-100)', borderRadius: '12px', padding: '4px', marginBottom: '16px' }}>
@@ -211,14 +219,8 @@ const ProductDetail = () => {
                 fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.65,
                 minHeight: '80px',
               }}>
-                {activeTab === 'dosage' && (product.dosage || 'Follow guidelines specified on the product packaging.')}
-                {activeTab === 'side_effects' && (product.side_effects || 'Standard tolerances apply. Consult a wellness practitioner if needed.')}
-                {activeTab === 'manufacturer' && (
-                  <div>
-                    <strong style={{ color: 'var(--text-dark)' }}>{product.manufacturer}</strong>
-                    <br />Certified wellness and specialty pharmacy partner operating under strict quality standards.
-                  </div>
-                )}
+                {activeTab === 'product_information' && (product.product_information || 'Product information placeholder. Detailed benefits, usage guidance, ingredients, and safety notes will be added once the client provides final approved content.')}
+                {activeTab === 'packaging' && (product.packaging || 'Packaging placeholder. Final packaging format, quantity, storage instructions, and dispatch details will be added once the client provides final approved content.')}
               </div>
             </div>
 

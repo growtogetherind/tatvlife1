@@ -6,15 +6,15 @@ const footerGroups = [
     title: 'Company',
     links: [
       { label: 'About Us', to: '/about' },
-      { label: 'Clinical Team', to: '/about' },
-      { label: 'Contact', to: '/dashboard' },
+      { label: 'Contact', to: '/contact' },
     ],
   },
   {
     title: 'Support',
     links: [
       { label: 'Shipping and Returns', to: '/return-policy' },
-      { label: 'FAQ', to: '/#faqs' },
+      { label: 'FAQ', to: '/contact#faqs' },
+      { label: 'Support Request', to: '/support-request' },
       { label: 'Track Order', to: '/dashboard' },
     ],
   },
