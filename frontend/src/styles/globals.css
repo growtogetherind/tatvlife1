@@ -1548,46 +1548,6 @@ img { display: block; max-width: 100%; height: auto; }
   margin: 0 auto;
 }
 
-.support-upload {
-  position: relative;
-  min-height: 132px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1.5px dashed var(--beige-300);
-  border-radius: 8px;
-  background: var(--beige-100);
-  color: var(--green-900);
-  cursor: pointer;
-  text-align: center;
-  transition: border-color 0.2s ease, background 0.2s ease;
-}
-
-.support-upload:hover {
-  border-color: var(--green-500);
-  background: var(--green-50);
-}
-
-.support-upload input {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.support-upload span {
-  font-size: 14px;
-  font-weight: 750;
-}
-
-.support-upload small {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 .stitch-footer {
   width: 100%;
   margin-top: 48px;

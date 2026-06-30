@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, FileUp, LifeBuoy, Send } from 'lucide-react';
+import { CheckCircle, LifeBuoy, Send } from 'lucide-react';
 
 const supportCategories = [
   'Shipping',
@@ -10,12 +10,10 @@ const supportCategories = [
 
 const SupportRequest = () => {
   const [submitted, setSubmitted] = useState(false);
-  const [attachmentName, setAttachmentName] = useState('');
 
   const handleSubmit = (event) => {
     event.preventDefault();
     setSubmitted(true);
-    setAttachmentName('');
     event.currentTarget.reset();
   };
 
@@ -73,18 +71,6 @@ const SupportRequest = () => {
               <div className="form-grid-full">
                 <label className="label" htmlFor="support-description">Description</label>
                 <textarea id="support-description" className="input contact-textarea" name="description" rows="7" required />
-              </div>
-              <div className="form-grid-full">
-                <label className="support-upload" htmlFor="support-attachment">
-                  <input
-                    id="support-attachment"
-                    name="attachment"
-                    type="file"
-                    onChange={event => setAttachmentName(event.target.files?.[0]?.name || '')}
-                  />
-                  <FileUp size={20} />
-                  {attachmentName && <span>{attachmentName}</span>}
-                </label>
               </div>
             </div>
 
