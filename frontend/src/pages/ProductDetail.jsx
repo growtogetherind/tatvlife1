@@ -161,7 +161,7 @@ const ProductDetail = () => {
             }}>
               <div>
                 <span style={{ fontSize: '11px', color: 'var(--text-light)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '4px' }}>
-                  Price (Express Delivery Included)
+                  Price
                 </span>
                 <span style={{ fontSize: '30px', fontWeight: 800, color: 'var(--green-900)', letterSpacing: '-0.03em' }}>
                   ${product.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}
