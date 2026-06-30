@@ -83,8 +83,7 @@ const SupportRequest = () => {
                     onChange={event => setAttachmentName(event.target.files?.[0]?.name || '')}
                   />
                   <FileUp size={20} />
-                  <span>{attachmentName || 'Upload an attachment'}</span>
-                  <small>Images, PDFs, or supporting documents</small>
+                  {attachmentName && <span>{attachmentName}</span>}
                 </label>
               </div>
             </div>
