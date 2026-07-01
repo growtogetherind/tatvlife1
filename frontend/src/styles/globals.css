@@ -667,7 +667,7 @@ img { display: block; max-width: 100%; height: auto; }
   text-decoration: none;
   transform: translate(-50%, -50%);
   z-index: 2;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .site-brand-logo {
