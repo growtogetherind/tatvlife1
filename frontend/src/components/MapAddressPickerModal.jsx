@@ -44,6 +44,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
     state: initialAddress?.state || '',
     country: initialAddress?.country || initialCountry || 'United States',
     postalCode: initialAddress?.postalCode || '',
+    landmark: initialAddress?.landmark || '',
     latitude: initialAddress?.latitude ?? null,
     longitude: initialAddress?.longitude ?? null,
   });
@@ -228,12 +229,15 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
       const state = address.state || address.region || '';
       const country = address.country || '';
       const postalCode = address.postcode || '';
+      const landmark = [address.neighbourhood, address.suburb, address.city_district, address.amenity, address.building].filter(Boolean).join(', ');
+      const fullStreet = [street, landmark].filter(Boolean).join(', ');
       setSelectedAddress({
-        street,
+        street: fullStreet || street || data.display_name || '',
         city,
         state,
         country,
         postalCode,
+        landmark,
         latitude: lat,
         longitude: lng,
       });
@@ -322,6 +326,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
       state: place.state || prev.state,
       country: place.country || prev.country,
       postalCode: place.postalCode || prev.postalCode,
+      landmark: place.landmark || prev.landmark,
       latitude: latlng.lat,
       longitude: latlng.lng,
     }));
@@ -338,6 +343,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
       state: selectedAddress.state,
       country: selectedAddress.country,
       postalCode: selectedAddress.postalCode,
+      landmark: selectedAddress.landmark,
       latitude: selectedAddress.latitude,
       longitude: selectedAddress.longitude,
     });
@@ -460,6 +466,11 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
               {[selectedAddress.city, selectedAddress.state, selectedAddress.country, selectedAddress.postalCode].filter(Boolean).join(', ')}
             </div>
+            {selectedAddress.landmark && (
+              <div style={{ fontSize: '12px', color: 'var(--green-700)', marginTop: '4px', fontWeight: 600 }}>
+                Landmark: {selectedAddress.landmark}
+              </div>
+            )}
           </div>
         </div>
       </div>

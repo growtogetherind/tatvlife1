@@ -167,6 +167,7 @@ const Checkout = () => {
           state: parsed.state ?? '',
           postalCode: parsed.postalCode ?? '',
           country: parsed.country ?? 'United States',
+          landmark: parsed.landmark ?? '',
           latitude: parsed.latitude ?? null,
           longitude: parsed.longitude ?? null,
         };
@@ -182,6 +183,7 @@ const Checkout = () => {
       state: '',
       postalCode: '',
       country: 'United States',
+      landmark: '',
       latitude: null,
       longitude: null,
     };
@@ -313,6 +315,7 @@ const Checkout = () => {
       state: selected.state || prev.state,
       country: selected.country || prev.country,
       postalCode: selected.postalCode || prev.postalCode,
+      landmark: selected.landmark || prev.landmark,
     }));
 
     const highlights = {
@@ -360,6 +363,7 @@ const Checkout = () => {
       state: selection.state || prev.state,
       country: selection.country || prev.country,
       postalCode: selection.postalCode || prev.postalCode,
+      landmark: selection.landmark || prev.landmark,
       latitude: selection.latitude ?? prev.latitude,
       longitude: selection.longitude ?? prev.longitude,
     }));
@@ -472,6 +476,7 @@ const Checkout = () => {
         free_delivery_threshold: freeDeliveryThreshold,
         shipping_address: {
           ...address,
+          landmark: address.landmark || '',
           latitude: address.latitude ?? null,
           longitude: address.longitude ?? null,
         },
@@ -685,6 +690,18 @@ const Checkout = () => {
                     onSelect={handleAddressSelect}
                     error={validationErrors.addressLine}
                     autofillFlash={autofillHighlight.addressLine}
+                  />
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="label">Landmark / Nearby Place</label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="landmark"
+                    value={address.landmark || ''}
+                    onChange={handleInputChange}
+                    placeholder="e.g. Near City Hospital, Opposite Metro Station"
                   />
                 </div>
 
