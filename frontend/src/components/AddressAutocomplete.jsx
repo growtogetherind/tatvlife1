@@ -187,21 +187,6 @@ const AddressAutocomplete = forwardRef(({ value, onChange, onSelect, error, auto
       aria-expanded={isOpen}
       aria-owns="address-suggestions-list"
     >
-      <label
-        htmlFor="address-autocomplete-input"
-        style={{
-          display: 'block',
-          fontSize: '12.5px',
-          fontWeight: 600,
-          color: 'var(--text-muted)',
-          marginBottom: '6px',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-        }}
-      >
-        Street Address <span style={{ color: '#e53e3e' }}>*</span>
-      </label>
-
       <div style={{ position: 'relative' }}>
         {/* Search icon */}
         <div
