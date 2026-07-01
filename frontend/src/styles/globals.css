@@ -666,12 +666,17 @@ img { display: block; max-width: 100%; height: auto; }
   color: var(--green-900);
   text-decoration: none;
   transform: translate(-50%, -50%);
+  z-index: 2;
+  pointer-events: none;
 }
 
 .site-brand-logo {
-  width: clamp(270px, 28vw, 360px);
+  width: min(243px, 22vw);
+  max-width: 243px;
+  max-height: 75px;
   height: auto;
   display: block;
+  margin: 0 auto;
 }
 
 .auth-brand-logo {
