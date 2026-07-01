@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { BadgeCheck, Headphones, PackageCheck, Truck, ArrowLeft, Star, ShoppingBag, Plus, Minus, AlertTriangle, ClipboardList } from 'lucide-react';
+import { BadgeCheck, Headphones, PackageCheck, Truck, ArrowLeft, ShoppingBag, Plus, Minus, AlertTriangle, ClipboardList } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { getProductBySlug } from '../lib/firestoreService';
 
@@ -141,16 +141,6 @@ const ProductDetail = () => {
             }}>
               {product.name}
             </h1>
-
-            {/* Ratings */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', gap: '2px' }}>
-                {[...Array(5)].map((_, i) => <Star key={i} size={14} fill={i < 4 ? '#f59e0b' : 'none'} color={i < 4 ? '#f59e0b' : '#d1d5db'} />)}
-              </div>
-              <span style={{ fontSize: '13.5px', fontWeight: 700, color: 'var(--text-dark)' }}>4.0</span>
-              <span style={{ color: 'var(--beige-300)', fontSize: '14px' }}>|</span>
-              <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Verified Reviews</span>
-            </div>
 
             {/* Price + Stock */}
             <div style={{

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { Search, ShoppingBag, Star, SlidersHorizontal, ChevronDown, Tag, Filter } from 'lucide-react';
+import { Search, ShoppingBag, SlidersHorizontal, ChevronDown, Tag, Filter } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { getProducts, getCategories, getActiveCoupons } from '../lib/firestoreService';
 
@@ -51,10 +51,6 @@ const ProductCard = ({ product }) => {
           }}>
             {product.description}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginBottom: 4 }}>
-            {[...Array(5)].map((_, i) => <Star key={i} size={12} fill={i < 4 ? '#f59e0b' : 'none'} color={i < 4 ? '#f59e0b' : '#d1d5db'} />)}
-            <span style={{ fontSize: 11.5, color: 'var(--text-muted)', marginLeft: 4 }}>(4.0)</span>
-          </div>
         </div>
       </Link>
       <div style={{ padding: '12px 18px 18px', marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid var(--beige-100)' }}>
