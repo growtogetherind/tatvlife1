@@ -52,46 +52,75 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
   const initialCenter = useMemo(() => getDefaultCenter(initialAddress?.country || initialCountry || 'United States'), [initialAddress?.country, initialCountry]);
 
   const tryLocateUser = (mapInstance = mapRef.current, markerInstance = markerRef.current) => {
-    if (!navigator.geolocation) {
-      setStatusMessage('Geolocation is not supported in this browser.');
-      setIsLoadingLocation(false);
-      return;
-    }
-
-    if (!window.isSecureContext) {
-      setStatusMessage('Location access requires a secure connection. Please open the site over HTTPS or localhost.');
-      setIsLoadingLocation(false);
-      return;
-    }
-
     setIsLoadingLocation(true);
-    setStatusMessage('Requesting your location…');
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        mapInstance?.setView([latitude, longitude], accuracy > 1000 ? 13 : 15);
-        markerInstance?.setLatLng([latitude, longitude]);
-        setSelectedAddress(prev => ({ ...prev, latitude, longitude }));
-        setStatusMessage(`Using your current location${accuracy ? ` (accuracy: ±${Math.round(accuracy)}m)` : ''}.`);
-        void reverseGeocode(latitude, longitude);
+    const locateViaIp = async (mapInst, markerInst) => {
+      try {
+        const response = await fetch('https://ipinfo.io/json');
+        if (!response.ok) throw new Error('IP lookup failed');
+        const data = await response.json();
+        if (data.loc) {
+          const [latStr, lngStr] = data.loc.split(',');
+          const latitude = parseFloat(latStr);
+          const longitude = parseFloat(lngStr);
+          mapInst?.setView([latitude, longitude], 13);
+          markerInst?.setLatLng([latitude, longitude]);
+          setSelectedAddress(prev => ({ ...prev, latitude, longitude }));
+          setStatusMessage('Location estimated using IP address.');
+          void reverseGeocode(latitude, longitude);
+        } else {
+          throw new Error('Coordinates not found in IP response');
+        }
+      } catch (err) {
+        console.error('IP Geolocation error:', err);
+        setStatusMessage('Location detection was unavailable. You can still choose a place manually.');
+      } finally {
         setIsLoadingLocation(false);
-      },
-      (error) => {
-        const messageMap = {
-          1: 'Location access was denied. You can still pick a place manually on the map.',
-          2: 'Your location could not be determined right now. You can still choose a place manually.',
-          3: 'Location lookup timed out. Please try again or pick a place manually.',
-        };
-        setStatusMessage(messageMap[error.code] || 'Location detection was unavailable. You can still choose a place manually.');
-        setIsLoadingLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        maximumAge: 0,
-        timeout: 20000,
       }
-    );
+    };
+
+    const handleBrowserGeolocation = (highAccuracy = true) => {
+      setStatusMessage(highAccuracy ? 'Requesting high-accuracy location…' : 'Requesting location (low accuracy mode)…');
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude, accuracy } = position.coords;
+          mapInstance?.setView([latitude, longitude], accuracy > 1000 ? 13 : 15);
+          markerInstance?.setLatLng([latitude, longitude]);
+          setSelectedAddress(prev => ({ ...prev, latitude, longitude }));
+          setStatusMessage(`Using your current location${accuracy ? ` (accuracy: ±${Math.round(accuracy)}m)` : ''}.`);
+          void reverseGeocode(latitude, longitude);
+          setIsLoadingLocation(false);
+        },
+        (error) => {
+          console.warn(`Browser geolocation failed (highAccuracy=${highAccuracy}):`, error);
+          if (error.code === 1) {
+            // Permission denied -> fall back to IP location immediately
+            setStatusMessage('Location permission denied. Estimating location using IP address…');
+            void locateViaIp(mapInstance, markerInstance);
+          } else if (highAccuracy) {
+            // Timeout or position unavailable -> try low accuracy
+            handleBrowserGeolocation(false);
+          } else {
+            // Both browser geolocation modes failed -> fall back to IP location
+            setStatusMessage('Browser location unavailable. Estimating location using IP address…');
+            void locateViaIp(mapInstance, markerInstance);
+          }
+        },
+        {
+          enableHighAccuracy: highAccuracy,
+          maximumAge: 10000,
+          timeout: 8000,
+        }
+      );
+    };
+
+    if (navigator.geolocation && window.isSecureContext) {
+      handleBrowserGeolocation(true);
+    } else {
+      console.log('Secure context or Geolocation API not available, falling back to IP');
+      void locateViaIp(mapInstance, markerInstance);
+    }
   };
 
   useEffect(() => {
@@ -158,12 +187,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
           updateFromMarker(marker.getLatLng());
         });
 
-        if (navigator.geolocation) {
-          void tryLocateUser(map, marker);
-        } else {
-          setStatusMessage('Geolocation is not supported in this browser. The map opened at the default view instead.');
-          setIsLoadingLocation(false);
-        }
+        void tryLocateUser(map, marker);
 
         if (initialAddress?.latitude && initialAddress?.longitude) {
           marker.setLatLng([initialAddress.latitude, initialAddress.longitude]);
