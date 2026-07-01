@@ -1,24 +1,228 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import { FileUp, ShieldCheck, ArrowRight, Lock, MapPin, CheckCircle, Clock } from 'lucide-react';
 import { validateCoupon, createOrder, incrementCouponUse, getCheckoutSettings, defaultCheckoutSettings } from '../lib/firestoreService';
+import AddressAutocomplete from '../components/AddressAutocomplete';
+import MapAddressPickerModal from '../components/MapAddressPickerModal';
+
+const countriesList = [
+  'United States',
+  'Canada',
+  'United Kingdom',
+  'Australia',
+  'India',
+  'Germany',
+  'France',
+  'Japan',
+  'Brazil',
+  'Mexico',
+  'South Africa',
+  'New Zealand',
+  'Singapore',
+  'Spain',
+  'Italy',
+  'Netherlands',
+];
+
+const SearchableCountrySelect = ({ value, onChange, error, autofillFlash }) => {
+  const [search, setSearch] = useState(value || '');
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const [flashing, setFlashing] = useState(false);
+
+  useEffect(() => {
+    setSearch(value || '');
+  }, [value]);
+
+  useEffect(() => {
+    if (autofillFlash) {
+      setFlashing(true);
+      const t = setTimeout(() => setFlashing(false), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [autofillFlash]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (containerRef.current && !containerRef.current.contains(e.target)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filteredCountries = countriesList.filter(c =>
+    c.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleSelect = (c) => {
+    setSearch(c);
+    onChange({ name: 'country', value: c });
+    setIsOpen(false);
+  };
+
+  return (
+    <div ref={containerRef} style={{ position: 'relative' }}>
+      <label className="label">Country <span style={{ color: '#e53e3e' }}>*</span></label>
+      <input
+        type="text"
+        className="input animate-fade-in"
+        name="country"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          onChange({ name: 'country', value: e.target.value });
+          setIsOpen(true);
+        }}
+        onFocus={() => setIsOpen(true)}
+        placeholder="Search country..."
+        required
+        style={{
+          borderColor: error ? '#e53e3e' : flashing ? 'var(--green-500)' : undefined,
+          boxShadow: flashing
+            ? '0 0 0 3px rgba(72, 187, 120, 0.25)'
+            : error
+            ? '0 0 0 3px rgba(229, 62, 62, 0.15)'
+            : undefined,
+          background: flashing ? 'rgba(72, 187, 120, 0.04)' : undefined,
+          transition: 'border-color 0.3s, box-shadow 0.4s, background 0.4s',
+        }}
+      />
+      {isOpen && (
+        <ul
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            right: 0,
+            background: 'var(--white)',
+            border: '1px solid #E5E5E2',
+            borderRadius: '12px',
+            boxShadow: 'var(--shadow-md)',
+            zIndex: 1000,
+            maxHeight: '200px',
+            overflowY: 'auto',
+            listStyle: 'none',
+            margin: '4px 0 0',
+            padding: '4px',
+          }}
+        >
+          {filteredCountries.length === 0 ? (
+            <li style={{ padding: '8px 12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+              No countries found
+            </li>
+          ) : (
+            filteredCountries.map(c => (
+              <li
+                key={c}
+                onMouseDown={() => handleSelect(c)}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13.5px',
+                  color: 'var(--text-dark)',
+                  background: search.toLowerCase() === c.toLowerCase() ? 'var(--green-50)' : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.background = 'var(--green-50)';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.background = search.toLowerCase() === c.toLowerCase() ? 'var(--green-50)' : 'transparent';
+                }}
+              >
+                {c}
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+      {error && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+          ⚠️ {error}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Checkout = () => {
   const { cartItems, cartSubtotal, requiresPrescription, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  const [address, setAddress] = useState({
-    fullName: user?.full_name || '',
-    phone: '',
+  const [address, setAddress] = useState(() => {
+    const saved = localStorage.getItem('checkout_address');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return {
+          fullName: parsed.fullName ?? (user?.full_name || ''),
+          email: parsed.email ?? (user?.email || ''),
+          addressLine: parsed.addressLine ?? '',
+          city: parsed.city ?? '',
+          state: parsed.state ?? '',
+          postalCode: parsed.postalCode ?? '',
+          country: parsed.country ?? 'United States',
+          latitude: parsed.latitude ?? null,
+          longitude: parsed.longitude ?? null,
+        };
+      } catch (e) {
+        // ignore
+      }
+    }
+    return {
+      fullName: user?.full_name || '',
+      email: user?.email || '',
+      addressLine: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: 'United States',
+      latitude: null,
+      longitude: null,
+    };
+  });
+
+  const [validationErrors, setValidationErrors] = useState({
+    fullName: '',
+    email: '',
     addressLine: '',
     city: '',
     state: '',
     postalCode: '',
-    country: 'India',
+    country: '',
   });
+
+  const [autofillHighlight, setAutofillHighlight] = useState({
+    addressLine: false,
+    city: false,
+    state: false,
+    postalCode: false,
+    country: false,
+  });
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
+  const [mapSelectionDetails, setMapSelectionDetails] = useState(null);
+
+  const streetAddressRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem('checkout_address', JSON.stringify(address));
+  }, [address]);
+
+  // Sync user values if they load later
+  useEffect(() => {
+    if (user) {
+      setAddress(prev => ({
+        ...prev,
+        fullName: prev.fullName || user.full_name || '',
+        email: prev.email || user.email || '',
+      }));
+    }
+  }, [user]);
 
   const [prescription, setPrescription] = useState({ name: '', base64: '' });
   const [paymentGateway, setPaymentGateway] = useState('usdt');
@@ -80,8 +284,153 @@ const Checkout = () => {
   };
 
   const handleInputChange = e => {
-    const { name, value } = e.target;
+    let name, value;
+    if (e.target) {
+      name = e.target.name;
+      value = e.target.value;
+    } else {
+      name = e.name;
+      value = e.value;
+    }
     setAddress(prev => ({ ...prev, [name]: value }));
+    if (validationErrors[name]) {
+      setValidationErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleEmailKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      streetAddressRef.current?.focus();
+    }
+  };
+
+  const handleAddressSelect = (selected) => {
+    setAddress(prev => ({
+      ...prev,
+      addressLine: selected.street || prev.addressLine,
+      city: selected.city || prev.city,
+      state: selected.state || prev.state,
+      country: selected.country || prev.country,
+      postalCode: selected.postalCode || prev.postalCode,
+    }));
+
+    const highlights = {
+      addressLine: !!selected.street,
+      city: !!selected.city,
+      state: !!selected.state,
+      country: !!selected.country,
+      postalCode: !!selected.postalCode,
+    };
+    setAutofillHighlight(highlights);
+
+    setTimeout(() => {
+      setAutofillHighlight({
+        addressLine: false,
+        city: false,
+        state: false,
+        postalCode: false,
+        country: false,
+      });
+    }, 1500);
+
+    // Clear validation errors for filled fields
+    setValidationErrors(prev => {
+      const next = { ...prev };
+      if (selected.street) next.addressLine = '';
+      if (selected.city) next.city = '';
+      if (selected.state) next.state = '';
+      if (selected.country) next.country = '';
+      if (selected.postalCode) next.postalCode = '';
+      return next;
+    });
+
+    if (!selected.postalCode) {
+      setTimeout(() => {
+        document.getElementsByName('postalCode')[0]?.focus();
+      }, 50);
+    }
+  };
+
+  const handleMapSelectionConfirm = (selection) => {
+    setAddress(prev => ({
+      ...prev,
+      addressLine: selection.street || prev.addressLine,
+      city: selection.city || prev.city,
+      state: selection.state || prev.state,
+      country: selection.country || prev.country,
+      postalCode: selection.postalCode || prev.postalCode,
+      latitude: selection.latitude ?? prev.latitude,
+      longitude: selection.longitude ?? prev.longitude,
+    }));
+    setMapSelectionDetails(selection);
+    setAutofillHighlight({
+      addressLine: !!selection.street,
+      city: !!selection.city,
+      state: !!selection.state,
+      country: !!selection.country,
+      postalCode: !!selection.postalCode,
+    });
+    setTimeout(() => {
+      setAutofillHighlight({
+        addressLine: false,
+        city: false,
+        state: false,
+        postalCode: false,
+        country: false,
+      });
+    }, 1500);
+    setValidationErrors(prev => ({
+      ...prev,
+      addressLine: selection.street ? '' : prev.addressLine,
+      city: selection.city ? '' : prev.city,
+      state: selection.state ? '' : prev.state,
+      country: selection.country ? '' : prev.country,
+      postalCode: selection.postalCode ? '' : prev.postalCode,
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+    let isValid = true;
+
+    if (!address.fullName.trim()) {
+      newErrors.fullName = 'Receiver Full Name is required';
+      isValid = false;
+    }
+    if (!address.email.trim()) {
+      newErrors.email = 'Email Address is required';
+      isValid = false;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim())) {
+      newErrors.email = 'Please enter a valid email address';
+      isValid = false;
+    }
+    if (!address.addressLine.trim()) {
+      newErrors.addressLine = 'Street Address is required';
+      isValid = false;
+    }
+    if (!address.city.trim()) {
+      newErrors.city = 'City is required';
+      isValid = false;
+    }
+    if (!address.state.trim()) {
+      newErrors.state = 'State / Province is required';
+      isValid = false;
+    }
+    if (!address.country.trim()) {
+      newErrors.country = 'Country is required';
+      isValid = false;
+    }
+    if (!address.postalCode.trim()) {
+      newErrors.postalCode = 'ZIP / Postal Code is required';
+      isValid = false;
+    } else if (address.postalCode.trim().length < 3) {
+      newErrors.postalCode = 'ZIP / Postal Code must be at least 3 characters';
+      isValid = false;
+    }
+
+    setValidationErrors(newErrors);
+    return isValid;
   };
 
   const handleFileUpload = e => {
@@ -100,17 +449,8 @@ const Checkout = () => {
       setError('A valid prescription document is required for specialty medications.');
       return;
     }
-    const required = ['fullName', 'phone', 'addressLine', 'city', 'state', 'postalCode'];
-    if (required.some(k => !address[k])) {
-      setError('Please complete all shipping address fields.');
-      return;
-    }
-    if (!/^\+?[0-9\s().-]{7,15}$/.test(address.phone)) {
-      setError('Please enter a valid phone number.');
-      return;
-    }
-    if (address.postalCode.trim().length < 3) {
-      setError('Please enter a valid postal code.');
+    if (!validateForm()) {
+      setError('Please complete all required fields correctly.');
       return;
     }
     if (!hasAcceptedAgreement) {
@@ -130,7 +470,11 @@ const Checkout = () => {
         tax_amount: taxAmount,
         tax_rate_percent: taxRatePercent,
         free_delivery_threshold: freeDeliveryThreshold,
-        shipping_address: address,
+        shipping_address: {
+          ...address,
+          latitude: address.latitude ?? null,
+          longitude: address.longitude ?? null,
+        },
         prescription_name: prescription.name || null,
         prescription_data: prescription.base64 || null,
         payment_status: 'unpaid',
@@ -144,6 +488,7 @@ const Checkout = () => {
       if (appliedCoupon?.code) {
         await incrementCouponUse(appliedCoupon.code);
       }
+      localStorage.removeItem('checkout_address');
       clearCart();
       setShowSuccessModal(true);
     } catch (err) {
@@ -166,12 +511,7 @@ const Checkout = () => {
     );
   }
 
-  const inputRow = (label, name, type = 'text', placeholder = '', colSpan = false) => (
-    <div style={{ gridColumn: colSpan ? 'span 2' : 'span 1' }}>
-      <label className="label">{label}</label>
-      <input type={type} className="input" name={name} value={address[name]} onChange={handleInputChange} placeholder={placeholder} required />
-    </div>
-  );
+
 
   const CryptoIcon = ({ symbol, isSelected }) => {
     const color = isSelected ? '#1E3F35' : 'var(--text-light)';
@@ -266,21 +606,159 @@ const Checkout = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
             {/* Address */}
-            <div className="card-elevated">
+            <div className="card-elevated animate-fade-in">
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                 <div style={{ width: '32px', height: '32px', borderRadius: '9px', background: 'var(--green-50)', border: '1px solid var(--green-100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <MapPin size={15} color="var(--green-700)" />
                 </div>
                 <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--green-900)', margin: 0 }}>Shipping Address</h3>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                {inputRow('Receiver Full Name', 'fullName', 'text', 'John Doe', true)}
-                {inputRow('Phone Number', 'phone', 'tel', '+1 (555) 019-2834')}
-                {inputRow('Country', 'country', 'text', 'United States')}
-                {inputRow('Street Address', 'addressLine', 'text', 'House no., Street, Landmark', true)}
-                {inputRow('City', 'city')}
-                {inputRow('State', 'state')}
-                {inputRow('PIN Code', 'postalCode')}
+              <div className="shipping-form-grid">
+                <div style={{ gridColumn: 'span 2' }}>
+                  <label className="label">Receiver Full Name <span style={{ color: '#e53e3e' }}>*</span></label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="fullName"
+                    value={address.fullName}
+                    onChange={handleInputChange}
+                    placeholder="John Doe"
+                    required
+                    style={{
+                      borderColor: validationErrors.fullName ? '#e53e3e' : undefined,
+                    }}
+                  />
+                  {validationErrors.fullName && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+                      ⚠️ {validationErrors.fullName}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-col-email">
+                  <label className="label">Email Address <span style={{ color: '#e53e3e' }}>*</span></label>
+                  <input
+                    type="email"
+                    className="input"
+                    name="email"
+                    value={address.email}
+                    onChange={handleInputChange}
+                    onKeyDown={handleEmailKeyDown}
+                    placeholder="john.doe@example.com"
+                    required
+                    style={{
+                      borderColor: validationErrors.email ? '#e53e3e' : undefined,
+                    }}
+                  />
+                  {validationErrors.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+                      ⚠️ {validationErrors.email}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-col-country">
+                  <SearchableCountrySelect
+                    value={address.country}
+                    onChange={handleInputChange}
+                    error={validationErrors.country}
+                    autofillFlash={autofillHighlight.country}
+                  />
+                </div>
+
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                    <label className="label">Street Address <span style={{ color: '#e53e3e' }}>*</span></label>
+                    <button
+                      type="button"
+                      onClick={() => setIsMapModalOpen(true)}
+                      style={{ border: '1px solid #d8d2c4', background: 'white', color: 'var(--green-700)', padding: '7px 10px', borderRadius: '10px', cursor: 'pointer', fontSize: '12px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <MapPin size={14} />
+                      Select on Map
+                    </button>
+                  </div>
+                  <AddressAutocomplete
+                    ref={streetAddressRef}
+                    value={address.addressLine}
+                    onChange={handleInputChange}
+                    onSelect={handleAddressSelect}
+                    error={validationErrors.addressLine}
+                    autofillFlash={autofillHighlight.addressLine}
+                  />
+                </div>
+
+                <div className="form-col-city">
+                  <label className="label">City <span style={{ color: '#e53e3e' }}>*</span></label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="city"
+                    value={address.city}
+                    onChange={handleInputChange}
+                    placeholder="New York"
+                    required
+                    style={{
+                      borderColor: validationErrors.city ? '#e53e3e' : autofillHighlight.city ? 'var(--green-500)' : undefined,
+                      boxShadow: autofillHighlight.city ? '0 0 0 3px rgba(72, 187, 120, 0.25)' : undefined,
+                      background: autofillHighlight.city ? 'rgba(72, 187, 120, 0.04)' : undefined,
+                      transition: 'border-color 0.3s, box-shadow 0.4s, background 0.4s',
+                    }}
+                  />
+                  {validationErrors.city && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+                      ⚠️ {validationErrors.city}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-col-state">
+                  <label className="label">State / Province <span style={{ color: '#e53e3e' }}>*</span></label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="state"
+                    value={address.state}
+                    onChange={handleInputChange}
+                    placeholder="New York"
+                    required
+                    style={{
+                      borderColor: validationErrors.state ? '#e53e3e' : autofillHighlight.state ? 'var(--green-500)' : undefined,
+                      boxShadow: autofillHighlight.state ? '0 0 0 3px rgba(72, 187, 120, 0.25)' : undefined,
+                      background: autofillHighlight.state ? 'rgba(72, 187, 120, 0.04)' : undefined,
+                      transition: 'border-color 0.3s, box-shadow 0.4s, background 0.4s',
+                    }}
+                  />
+                  {validationErrors.state && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+                      ⚠️ {validationErrors.state}
+                    </div>
+                  )}
+                </div>
+
+                <div className="form-col-zip" style={{ gridColumn: 'span 2' }}>
+                  <label className="label">ZIP / Postal Code <span style={{ color: '#e53e3e' }}>*</span></label>
+                  <input
+                    type="text"
+                    className="input"
+                    name="postalCode"
+                    value={address.postalCode}
+                    onChange={handleInputChange}
+                    placeholder="10001"
+                    required
+                    style={{
+                      borderColor: validationErrors.postalCode ? '#e53e3e' : autofillHighlight.postalCode ? 'var(--green-500)' : undefined,
+                      boxShadow: autofillHighlight.postalCode ? '0 0 0 3px rgba(72, 187, 120, 0.25)' : undefined,
+                      background: autofillHighlight.postalCode ? 'rgba(72, 187, 120, 0.04)' : undefined,
+                      transition: 'border-color 0.3s, box-shadow 0.4s, background 0.4s',
+                    }}
+                  />
+                  {validationErrors.postalCode && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginTop: '5px', fontSize: '12px', color: '#c53030', fontWeight: 500 }}>
+                      ⚠️ {validationErrors.postalCode}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -564,6 +1042,14 @@ const Checkout = () => {
         </div>
       )}
 
+      <MapAddressPickerModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        onConfirm={handleMapSelectionConfirm}
+        initialCountry={address.country}
+        initialAddress={address}
+      />
+
       <style>{`
         .payment-grid {
           display: grid;
@@ -582,6 +1068,58 @@ const Checkout = () => {
         }
         @media (max-width: 992px) {
           .checkout-grid { grid-template-columns: 1fr !important; gap: 24px !important; }
+        }
+
+        .shipping-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 16px;
+        }
+        .form-col-email {
+          grid-column: span 1;
+        }
+        .form-col-country {
+          grid-column: span 1;
+        }
+        .form-col-city {
+          grid-column: span 1;
+        }
+        .form-col-state {
+          grid-column: span 1;
+        }
+        .form-col-zip {
+          grid-column: span 2;
+        }
+        @media (max-width: 600px) {
+          .shipping-form-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .shipping-form-grid > div {
+            grid-column: span 1 !important;
+          }
+          .form-col-email,
+          .form-col-country,
+          .form-col-city,
+          .form-col-state,
+          .form-col-zip {
+            grid-column: span 1 !important;
+          }
+        }
+        @keyframes highlight-fade {
+          0% {
+            background-color: rgba(72, 187, 120, 0.15);
+            border-color: var(--green-500);
+          }
+          100% {
+            background-color: transparent;
+          }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out;
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
