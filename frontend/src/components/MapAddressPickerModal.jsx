@@ -141,6 +141,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
         markerRef.current = marker;
         mapRef.current = map;
         setIsMapReady(true);
+        setStatusMessage('Tap “Use current location” to try again, or drag the marker manually to choose a delivery spot.');
 
         const updateFromMarker = (latlng) => {
           const lat = latlng.lat;
@@ -158,8 +159,6 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
         marker.on('dragend', () => {
           updateFromMarker(marker.getLatLng());
         });
-
-        void tryLocateUser(map, marker);
 
         if (initialAddress?.latitude && initialAddress?.longitude) {
           marker.setLatLng([initialAddress.latitude, initialAddress.longitude]);
