@@ -8,7 +8,7 @@ const BrandLogo = ({ className = '', title = 'The WellMan Co' }) => {
       decoding="async"
       width="96"
       height="96"
-      style={{ objectFit: 'contain' }}
+      style={{ objectFit: 'contain', background: 'transparent' }}
     />
   );
 };
