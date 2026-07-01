@@ -51,6 +51,49 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
 
   const initialCenter = useMemo(() => getDefaultCenter(initialAddress?.country || initialCountry || 'United States'), [initialAddress?.country, initialCountry]);
 
+  const tryLocateUser = (mapInstance = mapRef.current, markerInstance = markerRef.current) => {
+    if (!navigator.geolocation) {
+      setStatusMessage('Geolocation is not supported in this browser.');
+      setIsLoadingLocation(false);
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      setStatusMessage('Location access requires a secure connection. Please open the site over HTTPS or localhost.');
+      setIsLoadingLocation(false);
+      return;
+    }
+
+    setIsLoadingLocation(true);
+    setStatusMessage('Requesting your location…');
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude, accuracy } = position.coords;
+        mapInstance?.setView([latitude, longitude], accuracy > 1000 ? 13 : 15);
+        markerInstance?.setLatLng([latitude, longitude]);
+        setSelectedAddress(prev => ({ ...prev, latitude, longitude }));
+        setStatusMessage(`Using your current location${accuracy ? ` (accuracy: ±${Math.round(accuracy)}m)` : ''}.`);
+        void reverseGeocode(latitude, longitude);
+        setIsLoadingLocation(false);
+      },
+      (error) => {
+        const messageMap = {
+          1: 'Location access was denied. You can still pick a place manually on the map.',
+          2: 'Your location could not be determined right now. You can still choose a place manually.',
+          3: 'Location lookup timed out. Please try again or pick a place manually.',
+        };
+        setStatusMessage(messageMap[error.code] || 'Location detection was unavailable. You can still choose a place manually.');
+        setIsLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 20000,
+      }
+    );
+  };
+
   useEffect(() => {
     if (!isOpen) return undefined;
 
@@ -116,34 +159,7 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
         });
 
         if (navigator.geolocation) {
-          setIsLoadingLocation(true);
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              if (cancelled) return;
-              const { latitude, longitude, accuracy } = position.coords;
-              map.setView([latitude, longitude], accuracy > 1000 ? 13 : 15);
-              marker.setLatLng([latitude, longitude]);
-              setSelectedAddress(prev => ({ ...prev, latitude, longitude }));
-              setStatusMessage(`Using your current location${accuracy ? ` (accuracy: ±${Math.round(accuracy)}m)` : ''}.`);
-              void reverseGeocode(latitude, longitude);
-              setIsLoadingLocation(false);
-            },
-            (error) => {
-              if (cancelled) return;
-              const messageMap = {
-                1: 'Location access was denied. The map opened at the default view instead.',
-                2: 'Your location could not be determined right now. The map opened at the default view instead.',
-                3: 'Location lookup timed out. The map opened at the default view instead.',
-              };
-              setStatusMessage(messageMap[error.code] || 'Location detection was unavailable. The map opened at the default view instead.');
-              setIsLoadingLocation(false);
-            },
-            {
-              enableHighAccuracy: true,
-              maximumAge: 10000,
-              timeout: 15000,
-            }
-          );
+          void tryLocateUser(map, marker);
         } else {
           setStatusMessage('Geolocation is not supported in this browser. The map opened at the default view instead.');
           setIsLoadingLocation(false);
@@ -392,7 +408,16 @@ const MapAddressPickerModal = ({ isOpen, onClose, onConfirm, initialCountry, ini
                 <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{statusMessage}</div>
               )}
             </div>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => void tryLocateUser()}
+                disabled={isLoadingLocation}
+                style={{ border: '1px solid #cde7d3', background: '#f1f9f3', color: 'var(--green-800)', padding: '10px 14px', borderRadius: '10px', cursor: isLoadingLocation ? 'wait' : 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                {isLoadingLocation ? <Loader2 size={16} style={{ animation: 'spin 0.8s linear infinite' }} /> : <MapPin size={16} />}
+                Use current location
+              </button>
               <button type="button" onClick={onClose} style={{ border: '1px solid #e4e1d8', background: 'white', color: 'var(--text-dark)', padding: '10px 14px', borderRadius: '10px', cursor: 'pointer', fontWeight: 600 }}>
                 Cancel
               </button>
